@@ -294,7 +294,21 @@ class Scene:
         hdr=genlib2.hdr_list_add(T['hdr'],T['hlog'],{'ElementParents.m_deletion':[x for lv,pl,_ in pts for x in (lv,pl)],
             'ElementParents.m_regenOnly':[r for _,_,r in pts],'ElementParents.m_nonDetermRegenChildren':[r for _,_,r in pts]})
         g.replace_existing(apt,hdr=hdr,rec=bytes(rec)); self.man.setdefault('edited',[]).append(apt)
+    def _rephase_seed(self):
+        """The seed house was made through the API in 'Phase 3' while the template's own views (and the 3D view Revit's GUI creates) show 'Phase 1': there every Phase 3 element
+        does not exist yet, so the seed walls/doors/windows/columns/floor/room vanished in the GUI 3D view while the writer's Phase 1 elements showed (user bug B). Move the seed's phase-aware
+        elements to Phase 1 like the writer's own (rec created phase + the phase parent in the header)."""
+        g=self.g; moved=[]
+        rows=[l.rstrip('\n').split('\t') for l in open(os.path.expanduser('~/rvt-research/gt_geom/%d_house_base.tsv'%self.year),errors='replace')]
+        for r in rows:
+            if r[0]!='EL' or r[2] not in ('Wall','FamilyInstance','Floor','Room'): continue
+            i=int(r[1]); t=g.template(i); o=[o for n,o,e,_ in t['log'] if n=='Element.m_createdPhaseId']
+            if not o or struct.unpack_from('<Q',t['rec'],o[0])[0]!=genlib.PHASE_NEW: continue
+            rec=bytearray(t['rec']); struct.pack_into('<Q',rec,o[0],genlib.PHASE_VISIBLE); hdr=bytearray(t['hdr']); genlib.setphase(hdr)
+            g.replace_existing(i,hdr=bytes(hdr),rec=bytes(rec)); moved.append(i)
+        if moved: self.man.setdefault('edited',[]).extend(moved); self.man['rephased']=moved
     def commit(self,out):
+        self._rephase_seed()
         self._apply_viewports(); self._apply_plan_topologies()
         g=self.g; known=set(g.e.m.ids)
         def comp(raw):
@@ -448,8 +462,9 @@ def campus5(S):
 def house1(S):
     for (a,b) in (((60,0),(100,0)),((100,0),(100,26)),((100,26),(60,26)),((60,26),(60,0))): S.wall(a,b)
     S.floor(60,0,40,26)
+    top=S.level('Writer Top',13.123359580052492)
     for i in range(5):
-        for j in range(3): S.column(64+i*8.0,3+j*10.0)
+        for j in range(3): S.column_lv(64+i*8.0,3+j*10.0,355,top)      # fitted column (the old single-template column() left Revit's geometry cache at the template position: 3D pick missed it)
     for k in range(6): S.window(14+k*2.5)
     S.door(32.0); S.door(35.5)
     S.text(62,-4,'Block B - writer-built (house1)'); S.text(2,-4,'Block A - Revit-made seed house')

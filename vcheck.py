@@ -140,7 +140,7 @@ def main():
                 mids=set()
                 if isinstance(m,dict):
                     for k in m:
-                        if k not in ('renames','deleted','edited','names'): mids|={x[0] for x in m[k]}
+                        if k not in ('renames','deleted','edited','names','rephased'): mids|={x[0] for x in m[k]}
                     ren={x[0] for x in m.get('renames',[])}
                 else: mids={x[0] for x in m}
                 if mids!=new: E('new ids %d != manifest ids %d'%(len(new),len(mids)))

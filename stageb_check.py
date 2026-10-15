@@ -9,7 +9,7 @@ vol={}
 for r in rows:
     if r[0]=='G': vol.setdefault(r[1].split('.')[0],0); vol[r[1].split('.')[0]]+=float(r[2].split('=')[1])
 for cls,items in M.items():
-    if cls in ('names','edited','deleted','renames'): continue
+    if cls in ('names','edited','deleted','renames','rephased'): continue
     if cls=='room_requests':
         for it in items:
             nm,num=it[3],it[4]; rr=[r for r in rows if r[0]=='ROOM' and r[5]=='number='+num]
