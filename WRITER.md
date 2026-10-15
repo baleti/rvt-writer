@@ -77,3 +77,7 @@ Names of walls/levels/views/sheets resolve through the manifest `IN.rte.json` wr
 - rooms: writer-built only as `rooms` boxes (4 joined 9 ft walls, one room per level, not on L1); rooms bounded by other walls, rooms on L1, several rooms per level: Revit finishing pass (`rooms`). Dimensions, tags and filled regions: finishing pass only
 - not yet writer-built: roofs/ceilings of free size (fixed 30x20 shape only), stairs/railings/curtain walls of free shape, MEP, groups, worksets, design options, dimensions, tags, filled regions, schedules on sheets
 - 2024: Revit refuses to place an EMPTY plan view on a sheet (Viewport.Create returns null); the writer's viewports are tested on plans with content
+
+## Revit-validity notes (2026-10-15)
+- Picking: every wall and floor the writer makes carries Revit's per-element spatial key (genlib.spatial_key, derived from the element outline), so 3D hover/selection works in Revit 2024 and 2026. The protocol checks it with a ReferenceIntersector ray at every wall, column and floor (tools/pickwalls.py, tools/pickcheck.py).
+- Phases: the seed house is moved to Phase 1 (the phase of the template views and of Revit's default 3D view), like every writer element; otherwise the seed is invisible in those views.

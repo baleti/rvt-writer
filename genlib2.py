@@ -118,6 +118,8 @@ def make_floor(g,FT,nids,x0,y0,W,D,z=0.0,level_id=355):
                 if z: struct.pack_into('<d',b,int(off),struct.unpack_from('<d',b,int(off))[0]+sl*z)
             parts[key]=b
         rec=bytearray(g.stamp(bytes(parts['rec']))); hdr=parts['hdr']; item=parts['item']
+        if r=='fl':      # Revit's spatial pick key of the slab (item[172], same loose-octree key as walls; strict at 0): a stale key makes the floor unpickable in 3D
+            hl={x[0]:x for x in T['hlog']}; item[172:176]=genlib.spatial_key(struct.unpack_from('<6d',hdr,hl['Outline.m_minmax'][1]),False)
         setphase(hdr); setphase(rec); rec=g.stamp(bytes(rec)); setphase(item); item=restamp(bytes(item),8)
         row=bytearray(T['row']); row[0:8]=nid.to_bytes(8,'little'); row[20:28]=nid.to_bytes(8,'little')
         out.append((bytes(hdr),bytes(rec),bytes(item),nid,bytes(row)))
@@ -621,7 +623,9 @@ def make_joined_rect(g,JT,wall_nids,level_id,x0,y0,W,D,z,extra_map=None):
             b=bytearray(T[key])
             for off,(fn,co) in ((fr.get(key) or {}).get('found',{})).items(): struct.pack_into('<d',b,int(off),sum(c*ft[f] for f,c in zip(fn,co)))
             parts[key]=bytearray(rep_many(b,idmap))
-        rec=parts['rec']; rec[4:12]=nid.to_bytes(8,'little'); rec=bytearray(g.stamp(bytes(rec))); item=restamp(bytes(parts['item']),8)
+        rec=parts['rec']; rec[4:12]=nid.to_bytes(8,'little'); setphase(parts['hdr']); setphase(rec); setphase(parts['item'])
+        genlib.rekey_item(parts['item'],T,parts['hdr'])
+        rec=bytearray(g.stamp(bytes(rec))); item=restamp(bytes(parts['item']),8)
         row=bytearray(rep_many(T['row'],idmap)); row[0:8]=nid.to_bytes(8,'little')
         out.append((bytes(parts['hdr']),bytes(rec),item,nid,bytes(row)))
     return out

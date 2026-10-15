@@ -88,6 +88,50 @@ def apply_wall_fit(buf,key,feats,bbox):
     mnx,mny,mxx,mxy=bbox
     sp={'hdr':{88:mnx,96:mny,112:mxx,120:mxy},'item':{72:mnx,80:mny,96:mxx,104:mxy,120:mnx,128:mny,144:mxx,152:mxy}}.get(key,{})
     for o,v in sp.items(): struct.pack_into('<d',buf,o,v)
+def _rnd(v): return math.floor(v+0.5-1e-9)
+def _keyaxis(lo,hi,maxc,zero_inclusive=False):
+    """smallest level l whose loose cell contains [lo,hi] (with a 1e-3 ft margin); returns (cell magnitude, negative?, level): cell = round half down of |centre|/size"""
+    ctr=(lo+hi)/2; mg=0.0 if (zero_inclusive and abs(lo)<1e-9) else 1e-3      # observed: x/y boxes starting exactly at 0 pass at the cell boundary, all others need the margin
+    for l in range(8):
+        sz=4.0**(l+1); m=_rnd(abs(ctr)/sz); c=-m if ctr<0 else m
+        if m>=maxc: continue
+        if lo>=sz*(c-1)+mg-1e-9 and hi<=sz*(c+1)-mg+1e-9: return m,ctr<0,l
+    raise ValueError('key out of range')
+def spatial_key(bb,zero_inclusive=True):
+    """Revit's per-element spatial key (loose octree cell, 4 bytes) from the element outline bb=(x0,y0,z0,x1,y1,z1) in ft. Decoded from 323 Revit walls (HANDOFF-c5-writer.md, ~98% exact):
+    per axis level l (cell size 4^(l+1) ft), cell c = round(centre/size), the loose cell [size*(c-1), size*(c+1)] must contain the box (1e-3 margin); packing:
+    b0 = (cx&15)<<4 | lx, b1 = (cx>>4) | (ysign<<3 | ly)<<4, b2 = |cy|, b3 = cz<<3 | lz  (cx, |cy| < 255, cz < 32; negative z centre: level + 4; negative x: untested)."""
+    cx,nx,lx=_keyaxis(bb[0],bb[3],255,zero_inclusive); cy,ny,ly=_keyaxis(bb[1],bb[4],255,zero_inclusive); cz,nz,lz=_keyaxis(bb[2],bb[5],32)
+    if nz: lz+=4
+    if nx: lx+=8
+    return bytes([((cx&15)<<4)|lx, (cx>>4)|(((8 if ny else 0)|ly)<<4), cy, (cz<<3)|lz])
+def set_gtoken(item,tmpl_item,bb):
+    """Revit stores that key (4 bytes) at item[316], 472, 628, 706 of a wall record: Every Revit-made wall has its own; clones of one template shared the template's and Revit's 3D picking
+    (ReferenceIntersector / hover) then only found the walls whose cell matched (writer bug A, tower20)."""
+    t=bytes(tmpl_item[316:320]); new=spatial_key(bb); n=0; i=-1
+    while True:
+        i=item.find(t,i+1)
+        if i<0: break
+        item[i:i+4]=new; n+=1
+    assert n>=3,n
+    return item
+def rekey_item(item,T,hdr_new):
+    """generic: replace the template's spatial key (spatial_key of the template header outline, found in the template item) by the key of the new header outline"""
+    def ol(h,hlog):
+        hl={x[0]:x for x in hlog}; return struct.unpack_from('<6d',h,hl['Outline.m_minmax'][1])
+    try: new=spatial_key(ol(hdr_new,T['hlog']))
+    except Exception: return item
+    for zi in (True,False):
+        try: old=spatial_key(ol(T['hdr'],T['hlog']),zi)
+        except Exception: continue
+        if old in T['item'] and old!=new:
+            i=-1; 
+            while True:
+                i=item.find(old,i+1)
+                if i<0: break
+                item[i:i+4]=new
+            return item
+    return item
 def make_wall(g,T,nid,level_id,p0,p1,h,z0,triple,tpl_level_id):
     """clone template wall T (a Revit wall) to a new wall from p0 to p1 with unconnected height h on level_id (elevation z0)"""
     W=8; idb=nid.to_bytes(W,'little'); feats=wall_features(p0[0],p0[1],p1[0],p1[1],h,z0); bbox=wall_bbox(p0[0],p0[1],p1[0],p1[1])
@@ -96,5 +140,5 @@ def make_wall(g,T,nid,level_id,p0,p1,h,z0,triple,tpl_level_id):
     tl=tpl_level_id.to_bytes(W,'little'); nl=level_id.to_bytes(W,'little'); rep(rec,tl,nl)
     setphase(rec); rec=g.stamp(bytes(rec))
     hdr,hl=hdr_ids(T,nid,W); apply_wall_fit(hdr,'hdr',feats,bbox); setphase(hdr)
-    item=bytearray(T['item']); apply_wall_fit(item,'item',feats,bbox); rep(item,T['tid'].to_bytes(W,'little'),idb); rep(item,tl,nl); setphase(item); item=bytearray(restamp(bytes(item),W))
+    item=bytearray(T['item']); apply_wall_fit(item,'item',feats,bbox); rep(item,T['tid'].to_bytes(W,'little'),idb); rep(item,tl,nl); set_gtoken(item,T['item'],struct.unpack_from('<6d',hdr,hl['Outline.m_minmax'][0])); setphase(item); item=bytearray(restamp(bytes(item),W))
     return bytes(hdr),rec,bytes(item),_row(g,T,nid,W,triple)

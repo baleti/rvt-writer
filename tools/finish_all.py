@@ -57,7 +57,8 @@ if (openings) {
     t.Commit(); }
 }
 if (__TOUCH__ || items.Any(x => (string)x["kind"] == "room")) {   // Revit's cached PlanTopology of a level does not know writer-made walls until they are touched
-  using (var t = new Transaction(d, "nudge")) { t.Start(); foreach (var id in new FilteredElementCollector(d).OfClass(typeof(Wall)).ToElementIds().ToList()) { ElementTransformUtils.MoveElement(d, id, new XYZ(0, 0, 0.01)); ElementTransformUtils.MoveElement(d, id, new XYZ(0, 0, -0.01)); } t.Commit(); }
+  using (var t = new Transaction(d, "nudge")) { t.Start(); var touchIds = new FilteredElementCollector(d).OfClass(typeof(Wall)).ToElementIds().ToList(); touchIds.AddRange(new FilteredElementCollector(d).OfCategory(BuiltInCategory.OST_StructuralColumns).WhereElementIsNotElementType().ToElementIds()); touchIds.AddRange(new FilteredElementCollector(d).OfClass(typeof(Floor)).ToElementIds());
+    foreach (var id in touchIds) { try { ElementTransformUtils.MoveElement(d, id, new XYZ(0, 0, 0.01)); ElementTransformUtils.MoveElement(d, id, new XYZ(0, 0, -0.01)); } catch (Exception ex) { errs.Add("touch " + id + ": " + ex.Message.Split((char)10)[0]); } } t.Commit(); }
   using (var t = new Transaction(d, "rg")) { t.Start(); d.Regenerate(); t.Commit(); }
 }
 foreach (var it in items.Where(x => (string)x["kind"] == "tag")) {      // make sure a tag family for the element's category is loaded (load from the Revit library if not)
