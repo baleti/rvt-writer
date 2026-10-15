@@ -139,6 +139,6 @@ def make_wall(g,T,nid,level_id,p0,p1,h,z0,triple,tpl_level_id):
     rec=bytearray(T['rec']); apply_wall_fit(rec,'rec',feats,bbox); rec[4:12]=idb; rec[L['Element.m_id'][0]:L['Element.m_id'][1]]=idb
     tl=tpl_level_id.to_bytes(W,'little'); nl=level_id.to_bytes(W,'little'); rep(rec,tl,nl)
     setphase(rec); rec=g.stamp(bytes(rec))
-    hdr,hl=hdr_ids(T,nid,W); apply_wall_fit(hdr,'hdr',feats,bbox); setphase(hdr)
+    hdr,hl=hdr_ids(T,nid,W); apply_wall_fit(hdr,'hdr',feats,bbox); oo=hl['Outline.m_minmax'][0]; struct.pack_into('<4d',hdr,oo,bbox[0],bbox[1],struct.unpack_from('<d',hdr,oo+16)[0],bbox[2]); struct.pack_into('<d',hdr,oo+32,bbox[3]); setphase(hdr)   # the 2026 header keeps its outline at 330, not 88
     item=bytearray(T['item']); apply_wall_fit(item,'item',feats,bbox); rep(item,T['tid'].to_bytes(W,'little'),idb); rep(item,tl,nl); set_gtoken(item,T['item'],struct.unpack_from('<6d',hdr,hl['Outline.m_minmax'][0])); setphase(item); item=bytearray(restamp(bytes(item),W))
     return bytes(hdr),rec,bytes(item),_row(g,T,nid,W,triple)
