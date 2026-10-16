@@ -25,7 +25,7 @@ for name in only:
     desc,body=F[name]
     for v,lab in ((0,'base'),(1,'var')):
         if os.path.exists('%s/%d_%s_%s.rte'%(outdir,year,name,lab)) and os.path.exists(os.path.expanduser('~/rvt-research/gt_geom/%d_%s_%s.tsv'%(year,name,lab))): continue
-        tag='ros_%s_%s'%(name,lab); fn='%d_%s_%s'%(year,name,lab)
+        tag='ros_%s_%s_%d'%(name,lab,year); fn='%d_%s_%s'%(year,name,lab)
         with guest.vmlock():
             port=guest.fresh(year)
             if not port: print(name,lab,'NO REVIT PORT, skipped',flush=True); continue
