@@ -56,6 +56,10 @@ scene in LOG.md).
 4. Revit geometry export compared to the manifest (`stageb_check.py`: class, position, volume, params)
 5. views/sheets: Revit viewdump compared to the manifest (`check_views.py`: viewports, detail lines, view text)
 
+6. 3D pick + phase (`tools/pickwalls.py` then `tools/pickcheck.py`, PICKCHECK PASS): a Phase 1 / Show Complete 3D view (what the GUI creates) is shot with ReferenceIntersector rays at every Wall, Structural Column and Floor (all must be hit = hover/select works) and no element may be in a later phase than the view (else it is invisible). Needs the spatial pick key (`genlib.spatial_key`) and Phase 1 on every cloned record (`setphase`; `Scene._rephase_seed` for the seed).
+   Whole chain for rebuilt scenes: `pipeline/rebuild_scenes.sh YEAR scene...` (builds, vcheck, queues the protocol + pick check for jobq); `pipeline/deliver.py` only delivers scenes with PICKCHECK PASS.
+7. Infra: the guest add-in signing cert is throwaway (2 days). After an idle period `guest.fresh()` re-signs it (C:/ci/trust-and-sign.ps1 -Years 2024,2026) when Revit gives no port.
+
 Run: `pipeline/stageb_job.sh TAG YEAR OUT.rte rosetta/<year>_house_base.rte` (needs the VM).
 
 ## Revit finishing pass (optional; needs the offline Revit VM; output is Revit-saved and flagged)
