@@ -547,7 +547,8 @@ def make_group_shift(g,GT,nids,dx,dy,tr,reuse=None):
             for o in GT.X[(i,key)]: struct.pack_into('<d',b,o,struct.unpack_from('<d',b,o)[0]+dx)
             for o in GT.Y[(i,key)]: struct.pack_into('<d',b,o,struct.unpack_from('<d',b,o)[0]+dy)
             parts[key]=bytearray(rep_many(b,idmap))
-        rec=parts['rec']; rec[4:12]=nid.to_bytes(8,'little'); rec=g.stamp(bytes(rec)); item=restamp(bytes(parts['item']),8)
+        rec=parts['rec']; rec[4:12]=nid.to_bytes(8,'little'); setphase(parts['hdr']); setphase(rec); setphase(parts['item']); genlib.rekey_item(parts['item'],T,parts['hdr'])   # Phase 1 like the rest + spatial pick key of the moved outline
+        rec=g.stamp(bytes(rec)); item=restamp(bytes(parts['item']),8)
         row=parts['row']; struct.pack_into('<3I',row,8,*tr)
         out.append((bytes(parts['hdr']),rec,item,nid,bytes(row)))
     return out

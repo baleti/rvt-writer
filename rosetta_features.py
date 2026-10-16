@@ -479,8 +479,8 @@ F['fam_sweep_line_arc_line']=famfeat("sweep of an L-shaped profile with a rounde
  path.Append(Line.CreateBound(new XYZ(-3,0,0), new XYZ(0,0,0)));
  path.Append(Arc.Create(new XYZ(0,0,0), new XYZ(R,0,R), new XYZ(R*Math.Sin(Math.PI/4), 0, R-R*Math.Cos(Math.PI/4))));
  path.Append(Line.CreateBound(new XYZ(R,0,R), new XYZ(R,0,R+3)));
- // profile in the plane x=-3 (perpendicular to the first segment): drawn in XY at the start with the YZ sketch plane is not allowed; Revit takes the profile in the plane at the path start
- var pr = new CurveArray(); var p = new XYZ[] { new XYZ(-3,-0.3,-0.3), new XYZ(-3,0.3,-0.3), new XYZ(-3,0.3,-0.1), new XYZ(-3,-0.1,-0.1), new XYZ(-3,-0.1,0.3), new XYZ(-3,-0.3,0.3) };
+ // oracle finding: NewSweep wants the profile drawn in the XY plane (z=0, coordinates relative to the path start); Revit maps it onto the plane perpendicular to the path start (profiles drawn in the true perpendicular plane raise ArgumentException)
+ var pr = new CurveArray(); var p = new XYZ[] { new XYZ(-0.3,-0.3,0), new XYZ(0.3,-0.3,0), new XYZ(0.3,-0.1,0), new XYZ(-0.1,-0.1,0), new XYZ(-0.1,0.3,0), new XYZ(-0.3,0.3,0) };
  for (int i = 0; i < 6; i++) pr.Append(Line.CreateBound(p[i], p[(i+1)%6]));
  var sprof = app.Create.NewCurveLoopsProfile(one(pr)); fd.FamilyCreate.NewSweep(true, path, spx, sprof, 0, ProfilePlaneLocation.Start);''')
 F['fam_sweep_spline_path']=famfeat("sweep of a circle r=0.25 along a HERMITE SPLINE path (S-curve in the XZ plane); variant: spline end point moved (+1 in x)",_HELP+r'''
@@ -488,16 +488,15 @@ F['fam_sweep_spline_path']=famfeat("sweep of a circle r=0.25 along a HERMITE SPL
  var pts = new List<XYZ> { new XYZ(0,0,0), new XYZ(2,0,1.5), new XYZ(4+dx,0,1), new XYZ(6+dx,0,3) };
  path.Append(HermiteSpline.Create(pts, false));
  var spl = (Curve)path.get_Item(0); var t0 = spl.ComputeDerivatives(0, true).BasisX.Normalize(); out_ += "t0=" + t0.X + "," + t0.Y + "," + t0.Z + ";";
- var pl = Plane.CreateByNormalAndOrigin(t0, pts[0]); var ca = new CurveArray();
- ca.Append(Arc.Create(pl, 0.25, 0, Math.PI)); ca.Append(Arc.Create(pl, 0.25, Math.PI, 2*Math.PI));
+ var ca = circ(XYZ.Zero, 0.25);
  var sprof = app.Create.NewCurveLoopsProfile(one(ca)); fd.FamilyCreate.NewSweep(true, path, spx, sprof, 0, ProfilePlaneLocation.Start);''')
 F['fam_sweep_3dpath']=famfeat("sweep of a 0.3x0.3 square along a true 3D path of three connected model lines (x, then y, then z direction); variant: last segment longer",_HELP+r'''
  double h = v==0 ? 3 : 5;
  var pp = new XYZ[] { new XYZ(0,0,0), new XYZ(4,0,0), new XYZ(4,3,0), new XYZ(4,3,h) };
  var refs = new ReferenceArray();
  for (int i = 0; i < 3; i++) { var ln = Line.CreateBound(pp[i], pp[i+1]); var dir = (pp[i+1]-pp[i]).Normalize(); var nrm = Math.Abs(dir.Z) > 0.9 ? XYZ.BasisX : XYZ.BasisZ; var plN = dir.CrossProduct(nrm).Normalize(); var spp = SketchPlane.Create(fd, Plane.CreateByNormalAndOrigin(plN, pp[i])); var mc = fd.FamilyCreate.NewModelCurve(ln, spp); refs.Append(mc.GeometryCurve.Reference); }
- var pl0 = Plane.CreateByNormalAndOrigin(XYZ.BasisX, pp[0]); var ca = new CurveArray(); var q = new XYZ[] { new XYZ(0,-0.15,-0.15), new XYZ(0,0.15,-0.15), new XYZ(0,0.15,0.15), new XYZ(0,-0.15,0.15) }; for (int i = 0; i < 4; i++) ca.Append(Line.CreateBound(q[i], q[(i+1)%4]));
- var sprof = app.Create.NewCurveLoopsProfile(one(ca)); fd.FamilyCreate.NewSweep(true, refs, sprof, ProfilePlaneLocation.Start);''')
+ var pl0 = Plane.CreateByNormalAndOrigin(XYZ.BasisX, pp[0]); var ca = new CurveArray(); var q = new XYZ[] { new XYZ(-0.15,-0.15,0), new XYZ(0.15,-0.15,0), new XYZ(0.15,0.15,0), new XYZ(-0.15,0.15,0) }; for (int i = 0; i < 4; i++) ca.Append(Line.CreateBound(q[i], q[(i+1)%4]));
+ var sprof = app.Create.NewCurveLoopsProfile(one(ca)); fd.FamilyCreate.NewSweep(true, refs, sprof, 0, ProfilePlaneLocation.Start);''')
 F['fam_blend_circle']=famfeat("blend of bottom circle r=1.5 at z=0 to top circle r=0.6 at z=4 centred x offset 1 (variant top r=0.9): cone-like loft with oblique axis",_HELP+r'''
  double rt = v==0 ? 0.6 : 0.9; var bot = circ(new XYZ(0,0,0), 1.5); var top = circ(new XYZ(1,0,4), rt);
  fd.FamilyCreate.NewBlend(true, top, bot, sp);''')
@@ -512,12 +511,12 @@ F['fam_blend_rect_circle']=famfeat("blend of bottom rectangle 3x2 at z=0 to top 
  try { fd.FamilyCreate.NewBlend(true, top, bot, sp); } catch (Exception ex) { out_ += "blend_rect_circle ERR " + ex.Message.Split('\n')[0] + ";"; throw; }''')
 F['fam_sweptblend']=famfeat("swept blend along a quarter-circle path in the XZ plane (r=3): start profile square 0.6, end profile circle r=0.2 (variant r=4)",_HELP+r'''
  double R = v==0?3:4; var path = new CurveArray(); path.Append(Arc.Create(new XYZ(R,0,0), new XYZ(0,0,R), new XYZ(R*Math.Cos(Math.PI/4), 0, R*Math.Sin(Math.PI/4))));
- var sq = new CurveArray(); var q = new XYZ[] { new XYZ(R-0.3,-0.3,0), new XYZ(R+0.3,-0.3,0), new XYZ(R+0.3,0.3,0), new XYZ(R-0.3,0.3,0) }; for (int i = 0; i < 4; i++) sq.Append(Line.CreateBound(q[i], q[(i+1)%4]));
+ var sq = new CurveArray(); var q = new XYZ[] { new XYZ(-0.3,-0.3,0), new XYZ(0.3,-0.3,0), new XYZ(0.3,0.3,0), new XYZ(-0.3,0.3,0) }; for (int i = 0; i < 4; i++) sq.Append(Line.CreateBound(q[i], q[(i+1)%4]));
  var cc = circ(new XYZ(0,0,0), 0.2); 
  // end profile lies in the plane at the path end (z=R), perpendicular to the path tangent (+z... tangent at end is -x): profile in plane x=0 -> draw as circle in YZ plane
- var cc2 = new CurveArray(); cc2.Append(Arc.Create(new XYZ(0,0,R), 0.2, 0, Math.PI, XYZ.BasisY, XYZ.BasisZ)); cc2.Append(Arc.Create(new XYZ(0,0,R), 0.2, Math.PI, 2*Math.PI, XYZ.BasisY, XYZ.BasisZ));
+ var cc2 = circ(XYZ.Zero, 0.2);
  var pr1 = app.Create.NewCurveLoopsProfile(one(sq)); var pr2 = app.Create.NewCurveLoopsProfile(one(cc2));
- fd.FamilyCreate.NewSweptBlend(true, path, spx, pr1, pr2);''')
+ fd.FamilyCreate.NewSweptBlend(true, path.get_Item(0), spx, pr1, pr2);''')
 F['fam_void_revolve']=famfeat("solid box 4x4x4 minus a VOID revolve (cone cavity: triangle r=1.5,h=4 about the Z axis); variant r=1.8",_HELP+r'''
  fd.FamilyCreate.NewExtrusion(true, one(rect(-2,-2,2,2,0)), sp, 4);
  double R = v==0?1.5:1.8; var prof = new CurveArray(); prof.Append(Line.CreateBound(new XYZ(0,0,0), new XYZ(R,0,0))); prof.Append(Line.CreateBound(new XYZ(R,0,0), new XYZ(0,0,4))); prof.Append(Line.CreateBound(new XYZ(0,0,4), new XYZ(0,0,0)));
@@ -526,8 +525,46 @@ F['fam_void_sweep']=famfeat("solid box 6x2x2 minus a VOID sweep (circle r=0.4 al
  fd.FamilyCreate.NewExtrusion(true, one(rect(-3,-1,3,1,0)), sp, 2);
  double r = v==0?0.4:0.6; var path = new CurveArray(); path.Append(Arc.Create(new XYZ(-2.5,0,1), new XYZ(2.5,0,1), new XYZ(0,0,2.5)));
  var ca = new CurveArray(); var pl = Plane.CreateByNormalAndOrigin(new XYZ(0.9,0,0.43).Normalize(), new XYZ(-2.5,0,1));
- var cs = new CurveArray(); cs.Append(Arc.Create(new XYZ(-2.5,0,1), r, 0, Math.PI, XYZ.BasisY, XYZ.BasisZ)); cs.Append(Arc.Create(new XYZ(-2.5,0,1), r, Math.PI, 2*Math.PI, XYZ.BasisY, XYZ.BasisZ));
+ var cs = circ(XYZ.Zero, r);
  var sprof = app.Create.NewCurveLoopsProfile(one(cs)); fd.FamilyCreate.NewSweep(false, path, spx, sprof, 0, ProfilePlaneLocation.Start);''')
 F['fam_void_blend']=famfeat("solid box 4x4x4 minus a VOID blend (bottom square 1.5 to top circle r=0.4, z 0..4); variant top r=0.7",_HELP+r'''
  fd.FamilyCreate.NewExtrusion(true, one(rect(-2,-2,2,2,0)), sp, 4);
  double rt = v==0?0.4:0.7; fd.FamilyCreate.NewBlend(false, circ(new XYZ(0,0,4), rt), rect(-0.75,-0.75,0.75,0.75,0), sp);''')
+
+F['dbg_sweep']=famfeat("debug sweep variants",_HELP+r'''
+ Func<string, CurveArray, CurveArray, bool> tr = (nm, pth, prc) => { try { var sp_ = app.Create.NewCurveLoopsProfile(one(prc)); fd.FamilyCreate.NewSweep(true, pth, spx, sp_, 0, ProfilePlaneLocation.Start); out_ += nm + "=OK;"; return true; } catch (Exception e_) { out_ += nm + "=FAIL(" + e_.Message.Substring(0, 30) + ");"; return false; } };
+ Func<double, double, double, CurveArray> rx = (x, y, z) => { var a_ = new CurveArray(); var q = new XYZ[] { new XYZ(x,y-0.2,z-0.2), new XYZ(x,y+0.2,z-0.2), new XYZ(x,y+0.2,z+0.2), new XYZ(x,y-0.2,z+0.2) }; for (int i = 0; i < 4; i++) a_.Append(Line.CreateBound(q[i], q[(i+1)%4])); return a_; };
+ var p1 = new CurveArray(); p1.Append(Line.CreateBound(new XYZ(-3,0,0), new XYZ(0,0,0)));
+ tr("line_rectYZ", p1, rx(-3,0,0));
+ var p2 = new CurveArray(); p2.Append(Line.CreateBound(new XYZ(0,0,0), new XYZ(3,0,0)));
+ tr("line2_rectYZ", p2, rx(0,0,0));
+ var p3 = new CurveArray(); p3.Append(Line.CreateBound(new XYZ(-3,0,0), new XYZ(0,0,0))); p3.Append(Arc.Create(new XYZ(0,0,0), new XYZ(2,0,2), new XYZ(2*Math.Sin(Math.PI/4), 0, 2-2*Math.Cos(Math.PI/4))));
+ tr("line_arc", p3, rx(-3,0,0));
+ var p4 = new CurveArray(); p4.Append(HermiteSpline.Create(new List<XYZ> { new XYZ(0,0,0), new XYZ(2,0,1.5), new XYZ(4,0,1), new XYZ(6,0,3) }, false));
+ var t0 = ((Curve)p4.get_Item(0)).ComputeDerivatives(0, true).BasisX.Normalize();
+ tr("spline_rectYZ", p4, rx(0,0,0));
+ var pl = Plane.CreateByNormalAndOrigin(t0, XYZ.Zero); var cc = new CurveArray(); cc.Append(Arc.Create(pl, 0.25, 0, Math.PI)); cc.Append(Arc.Create(pl, 0.25, Math.PI, 2*Math.PI));
+ tr("spline_circ", p4, cc);
+ var cc2 = new CurveArray(); cc2.Append(Arc.Create(new XYZ(0,0,0), 0.25, 0, Math.PI, XYZ.BasisY, XYZ.BasisZ)); cc2.Append(Arc.Create(new XYZ(0,0,0), 0.25, Math.PI, 2*Math.PI, XYZ.BasisY, XYZ.BasisZ));
+ tr("line2_circ", p2, cc2);
+ var pz = new CurveArray(); pz.Append(Line.CreateBound(new XYZ(0,0,0), new XYZ(0,0,3)));
+ Func<double, CurveArray> rz = (z) => { var a_ = new CurveArray(); var q = new XYZ[] { new XYZ(-0.2,-0.2,z), new XYZ(0.2,-0.2,z), new XYZ(0.2,0.2,z), new XYZ(-0.2,0.2,z) }; for (int i = 0; i < 4; i++) a_.Append(Line.CreateBound(q[i], q[(i+1)%4])); return a_; };
+ tr("linez_rectXY", pz, rz(0));
+ var pz2 = new CurveArray(); pz2.Append(Line.CreateBound(new XYZ(2,0,0), new XYZ(2,0,3)));
+ Func<double, CurveArray> rz2 = (z) => { var a_ = new CurveArray(); var q = new XYZ[] { new XYZ(1.8,-0.2,z), new XYZ(2.2,-0.2,z), new XYZ(2.2,0.2,z), new XYZ(1.8,0.2,z) }; for (int i = 0; i < 4; i++) a_.Append(Line.CreateBound(q[i], q[(i+1)%4])); return a_; };
+ tr("linez_off_rectXY", pz2, rz2(0));
+ var pa = new CurveArray(); pa.Append(Arc.Create(new XYZ(3,0,0), new XYZ(0,0,3), new XYZ(3*Math.Cos(Math.PI/4), 0, 3*Math.Sin(Math.PI/4))));
+ tr("arc_vert_rectXY", pa, rz2(0));
+ var pb = new CurveArray(); pb.Append(Line.CreateBound(new XYZ(0,0,0), new XYZ(0,0,3))); pb.Append(Line.CreateBound(new XYZ(0,0,3), new XYZ(2,0,3)));
+ tr("two_lines", pb, rz(0));
+ Func<double, double, double, CurveArray> rzc = (cx, cy, cz) => { var a_ = new CurveArray(); var q = new XYZ[] { new XYZ(cx-0.2,cy-0.2,cz), new XYZ(cx+0.2,cy-0.2,cz), new XYZ(cx+0.2,cy+0.2,cz), new XYZ(cx-0.2,cy+0.2,cz) }; for (int i = 0; i < 4; i++) a_.Append(Line.CreateBound(q[i], q[(i+1)%4])); return a_; };
+ Func<double, double, double, CurveArray> ryc = (cx, cy, cz) => { var a_ = new CurveArray(); var q = new XYZ[] { new XYZ(cx-0.2,cy,cz-0.2), new XYZ(cx+0.2,cy,cz-0.2), new XYZ(cx+0.2,cy,cz+0.2), new XYZ(cx-0.2,cy,cz+0.2) }; for (int i = 0; i < 4; i++) a_.Append(Line.CreateBound(q[i], q[(i+1)%4])); return a_; };
+ tr("xline_XYat0", p2, rzc(0,0,0));
+ tr("xline_XYat0_pathstart3", p1, rzc(0,0,0));
+ tr("xline_XYat_start", p1, rzc(-3,0,0));
+ tr("xline_XZ", p2, ryc(0,0,0));
+ tr("spline_XY", p4, rzc(0,0,0));
+ var pz3 = new CurveArray(); pz3.Append(Line.CreateBound(new XYZ(1,2,3), new XYZ(1,2,6)));
+ tr("zline_off123_XYat0", pz3, rzc(0,0,0));
+ tr("zline_off123_XYatstart", pz3, rzc(1,2,3));
+ tr("zline_off123_XYat1_2_0", pz3, rzc(1,2,0));''')

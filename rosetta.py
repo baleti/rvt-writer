@@ -34,11 +34,12 @@ for name in only:
             cs=(PRE+body+POST).replace("__Y__",str(year)).replace('__SEEDPATH__',SEEDPATH).replace('__V__',str(v)).replace('__SEED__',seed).replace('__NAME__',tag)
             o=guest.run_job(year,port,cs,tag,400)
             ok='ROSETTA' in o
-            print(name,lab,('created '+o[o.find('ROSETTA'):][:300].replace('\n',' ')) if ok else 'FAIL: '+o[:900].replace('\n',' '),flush=True)
+            print(name,lab,('created '+o[o.find('ROSETTA'):][:1500].replace('\n',' ')) if ok else 'FAIL: '+o[:900].replace('\n',' '),flush=True)
             if not ok: continue
             guest.get('C:/wl/out/%s.rte'%tag,'%s/%s.rte'%(outdir,fn))
             gt=GT.replace('__FILE__','C:/wl/out/%s.rte'%tag).replace('__TAG__',tag+'_gt').replace('__START__','0').replace('__COUNT__','1000000').replace('__FAMMAX__','20')
             o2=guest.run_job(year,port,gt,tag+'_gt',600)
+            if 'DONE' not in o2: time.sleep(20); o2=guest.run_job(year,port,gt,tag+'_gt',900)   # one retry: the first call right after the open can hit the client read timeout
             if 'DONE' in o2: guest.get('C:/wl/out/%s_gt.gt'%tag,os.path.expanduser('~/rvt-research/gt_geom/%s.tsv'%fn)); print('  gt ok',flush=True)
             else: print('  gt FAIL',o2[-300:].replace('\n',' '),flush=True)
             guest.down(year)
