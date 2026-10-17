@@ -23,7 +23,7 @@ Years: **2024** and **2026** (`"year"`). Units: feet.
 | `levels` | `{name, elevation}` | any number; `L1` = seed ground level |
 | `params` | `{name, kind, guid?}` kind = text, int, number, length, yesno | shared parameters bound to walls; GUID = `guid` or a deterministic uuid5 of kind+name (builds are reproducible: same spec, same bytes) |
 | `walls` | `{id?, from:[x,y], to:[x,y], level, height, mark?, comments?, values?:{param: value}}` | straight, any direction, any level; type = template wall type |
-| `floors` | `{x, y, width, depth, level}` | rectangles with width >= depth |
+| `floors` | `{x, y, width, depth, level}` | axis-aligned rectangles, any width and depth (portrait and square verified 2026-10-17) |
 | `columns` | `{x, y, base, top}` | structural columns between two levels |
 | `windows`, `doors` | `{wall: <wall id>, offset}` | host wall must run along +x; first window type / door type of the template. Host wall is NOT cut (see limits) |
 | `views` | `{name, level}` | floor plans |

@@ -636,3 +636,15 @@ using (var t = new Transaction(d, "grp")) { t.Start();
  var w2 = Wall.Create(d, Line.CreateBound(new XYZ(70+DX,120+DY,0), new XYZ(70+DX,130+DY,0)), wt.Id, l1.Id, 9, 0, false, false); d.Regenerate();
  var g = d.Create.NewGroup(new List<ElementId> { w1.Id, w2.Id }); t.Commit(); out_ += "group=" + g.Id; }
 ''')
+
+F['rooms_multi']=("3 new levels (z=10,20,30); level 0: two disjoint rooms, level 1: three disjoint rooms, level 2: one room; each room bounded by 4 generic walls (height 9), rooms named 'M<k>_<j>' number '<k><j>'; variant: all rectangles shifted +3 in x",r'''
+double[][][] R = { new double[][]{ new double[]{0,0,20,12}, new double[]{30,0,14,9} }, new double[][]{ new double[]{0,0,12,10}, new double[]{20,0,15,8}, new double[]{40,5,10,10} }, new double[][]{ new double[]{0,0,18,11} } };
+var lv = new List<Level>(); using (var t = new Transaction(d, "lv")) { t.Start(); for (int k = 0; k < 3; k++) { var l = Level.Create(d, 10 * k + 10); l.Name = "MR" + k; lv.Add(l); } t.Commit(); }
+using (var t = new Transaction(d, "rg")) { t.Start(); d.Regenerate(); t.Commit(); }
+using (var t = new Transaction(d, "rm")) { t.Start(); var wt = new FilteredElementCollector(d).OfClass(typeof(WallType)).Cast<WallType>().First(x => x.Kind == WallKind.Basic);
+ for (int k = 0; k < 3; k++) foreach (var rr in R[k]) { double x0 = rr[0] + (v == 1 ? 3 : 0), y0 = rr[1], W = rr[2], D = rr[3]; var p = new XYZ[] { new XYZ(x0, y0, 0), new XYZ(x0 + W, y0, 0), new XYZ(x0 + W, y0 + D, 0), new XYZ(x0, y0 + D, 0) };
+  for (int i = 0; i < 4; i++) { var l = Line.CreateBound(new XYZ(p[i].X, p[i].Y, lv[k].Elevation), new XYZ(p[(i+1)%4].X, p[(i+1)%4].Y, lv[k].Elevation)); Wall.Create(d, l, wt.Id, lv[k].Id, 9, 0, false, false); } }
+ t.Commit(); }
+using (var t = new Transaction(d, "rg2")) { t.Start(); d.Regenerate(); t.Commit(); }
+using (var t = new Transaction(d, "rm2")) { t.Start(); for (int k = 0; k < 3; k++) { int j = 0; foreach (var rr in R[k]) { double x0 = rr[0] + (v == 1 ? 3 : 0); var r = d.Create.NewRoom(lv[k], new UV(x0 + rr[2] / 2, rr[1] + rr[3] / 2)); r.Name = "M" + k + "_" + j; r.Number = "" + k + j; out_ += "room " + k + j + " area " + r.Area + ";"; j++; } } t.Commit(); }
+''')

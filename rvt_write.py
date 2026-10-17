@@ -67,7 +67,6 @@ def validate(sp):
             if n not in pk: err.append('wall %d: value for undeclared param %s'%(k,n))
     for k,f in enumerate(sp.get('floors',[])):
         if f.get('level',LEVEL1) not in lv: err.append('floor %d: unknown level'%k)
-        if f['width']<f['depth']: err.append('floor %d: width must be >= depth (writer limit: rectangles W>=D)'%k)
     for k,c in enumerate(sp.get('columns',[])):
         if c.get('base',LEVEL1) not in lv or c.get('top') not in lv: err.append('column %d: base/top must be known levels'%k)
         elif lv[c['top']]<=lv[c.get('base',LEVEL1)]: err.append('column %d: top level must be above base'%k)
