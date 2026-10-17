@@ -575,3 +575,29 @@ F['view_dims_fit']=_vf("(dims) 9 linear dimensions between the interior faces of
  foreach (double y in new double[] { 1, 2.5, 4, 5.5, 7, 8.5, 10, 12, 13.5 }) { try { var ra = new ReferenceArray(); ra.Append(HostObjectUtils.GetSideFaces(vw.First(), ShellLayerType.Interior)[0]); ra.Append(HostObjectUtils.GetSideFaces(vw.Last(), ShellLayerType.Interior)[0]); d.Create.NewDimension(vp, Line.CreateBound(new XYZ(0, y, 20), new XYZ(20, y, 20)), ra); out_ += "dimV" + y + " ok;"; } catch (Exception ex) { out_ += "dimV" + y + "ERR " + ex.Message.Split((char)10)[0] + ";"; } }
  foreach (double x in new double[] { 2, 5, 8, 11, 14, 17 }) { try { var ra = new ReferenceArray(); ra.Append(HostObjectUtils.GetSideFaces(hw.First(), ShellLayerType.Interior)[0]); ra.Append(HostObjectUtils.GetSideFaces(hw.Last(), ShellLayerType.Interior)[0]); d.Create.NewDimension(vp, Line.CreateBound(new XYZ(x, 0, 20), new XYZ(x, 14, 20)), ra); out_ += "dimH" + x + " ok;"; } catch (Exception ex) { out_ += "dimH" + x + "ERR " + ex.Message.Split((char)10)[0] + ";"; } }
 """)
+
+F['view_tags_fit']=_vf("(NOT USABLE AS IS: the seeds have no tag family loaded, IndependentTag.Create fails with 'no loaded tag type'; load a tag family first, see tools/finish_all.py) (tags) in the VR plan: 6 wall tags on the south wall (Mark A) with heads at x=2,5,8,11,14,17 y=-2 (no leader), one wall tag per other wall (heads: east (23,7), north (10,16), west (-3,7)), the door tag (head (6,3)) and the window tag (head (17,7)), one wall tag with leader (head (10,-4)); each in its own try","""
+ var walls = new FilteredElementCollector(d).OfClass(typeof(Wall)).Cast<Wall>().Where(x => x.LevelId == vl.Id).OrderBy(x => { var c = (x.Location as LocationCurve).Curve; return c.GetEndPoint(0).X * 1000 + c.GetEndPoint(0).Y; }).ToList();
+ var south = walls.First(x => Math.Abs((x.Location as LocationCurve).Curve.GetEndPoint(0).Y) < 0.01 && Math.Abs((x.Location as LocationCurve).Curve.GetEndPoint(1).Y) < 0.01);
+ var east = walls.First(x => Math.Abs((x.Location as LocationCurve).Curve.GetEndPoint(0).X - 20) < 0.01 && Math.Abs((x.Location as LocationCurve).Curve.GetEndPoint(1).X - 20) < 0.01);
+ var north = walls.First(x => Math.Abs((x.Location as LocationCurve).Curve.GetEndPoint(0).Y - 14) < 0.01 && Math.Abs((x.Location as LocationCurve).Curve.GetEndPoint(1).Y - 14) < 0.01);
+ var west = walls.First(x => Math.Abs((x.Location as LocationCurve).Curve.GetEndPoint(0).X) < 0.01 && Math.Abs((x.Location as LocationCurve).Curve.GetEndPoint(1).X) < 0.01);
+ var win = new FilteredElementCollector(d).OfClass(typeof(FamilyInstance)).OfCategory(BuiltInCategory.OST_Windows).First();
+ Action<string, Element, double, double, bool> tg = (nm, el, x, y, ld) => { try { var tgx = IndependentTag.Create(d, vp.Id, new Reference(el), ld, TagMode.TM_ADDBY_CATEGORY, TagOrientation.Horizontal, new XYZ(x, y, 20)); out_ += nm + " ok " + tgx.Id + ";"; } catch (Exception ex) { out_ += nm + "ERR " + ex.Message.Split((char)10)[0] + ";"; } };
+ foreach (double x in new double[] { 2, 5, 8, 11, 14, 17 }) tg("tS" + x, south, x, -2, false);
+ tg("tE", east, 23, 7, false); tg("tN", north, 10, 16, false); tg("tW", west, -3, 7, false); tg("tDoor", door0, 6, 3, false); tg("tWin", win, 17, 7, false); tg("tLead", south, 10, -4, true);
+""")
+
+F['view_regions_fit']=_vf("(regions) 8 rectangular filled regions in the VR plan (level VR1 z=20), (x,y,w,d) = (14,9,3,2) (2,2,4,3) (8,2,2,6) (3,8,6,2) (15,2,2.5,2.5) (10,10,5,3) (1,5,1,1) (6,6,7,2): each its own FilledRegion with 4 line boundary curves","""
+ var frt = new FilteredElementCollector(d).OfClass(typeof(FilledRegionType)).FirstElement().Id;
+ foreach (var r in new double[][] { new double[] {14,9,3,2}, new double[] {2,2,4,3}, new double[] {8,2,2,6}, new double[] {3,8,6,2}, new double[] {15,2,2.5,2.5}, new double[] {10,10,5,3}, new double[] {1,5,1,1}, new double[] {6,6,7,2} }) {
+  try { var lp = new CurveLoop(); var q = new XYZ[] { new XYZ(r[0], r[1], 20), new XYZ(r[0] + r[2], r[1], 20), new XYZ(r[0] + r[2], r[1] + r[3], 20), new XYZ(r[0], r[1] + r[3], 20) }; for (int i = 0; i < 4; i++) lp.Append(Line.CreateBound(q[i], q[(i + 1) % 4])); FilledRegion.Create(d, frt, vp.Id, new List<CurveLoop> { lp }); out_ += "region ok;"; } catch (Exception ex) { out_ += "regionERR " + ex.Message.Split((char)10)[0] + ";"; } }
+""")
+
+F['view_tags_types']=_vf("(tag types) copy the Wall, Door and Window tag FamilySymbols from the default project template (Default_M_ENU.rte) into the file with CopyElements (what tools/finish_all.py does); no tags placed",r"""
+ foreach (var stem in new string[] { "Wall", "Door", "Window" }) {
+  try { var tp = @"C:\\ProgramData\\Autodesk\\RVT " + d.Application.VersionNumber + @"\\Templates\\Default_M_ENU.rte"; var src = d.Application.OpenDocumentFile(tp);
+   var sc = src.Settings.Categories.Cast<Category>().FirstOrDefault(c => c.Name == stem + " Tags"); var sym = sc == null ? null : new FilteredElementCollector(src).OfClass(typeof(FamilySymbol)).Cast<FamilySymbol>().FirstOrDefault(f => f.Category != null && f.Category.Id.Equals(sc.Id));
+   if (sym != null) { var cp = ElementTransformUtils.CopyElements(src, new List<ElementId> { sym.Id }, d, Transform.Identity, new CopyPasteOptions()); out_ += stem + " copied " + cp.Count + " (" + sym.Name + ");"; } else out_ += stem + " nosym;"; src.Close(false); }
+  catch (Exception ex) { out_ += stem + "ERR " + ex.Message.Split((char)10)[0] + ";"; } }
+""")

@@ -31,6 +31,8 @@ EXAMPLE={
  "text":[{"x":60,"y":-6,"text":"Model note"}],
  "detail_lines":[{"view":"Plan L1","from":[60,-3],"to":[100,-3]}],
  "view_text":[{"view":"Plan L1","x":62,"y":-8,"text":"View note"}],
+ "filled_regions":[{"view":"Plan L1","x":62,"y":2,"w":10,"d":6}],
+ "dimensions":[{"view":"Plan L3","walls":["office.west","office.east"],"at":7.0}],
  "stairs":[{"offset":[0,-80]}],
  "railings":[{"offset":[0,-80]}],
  "curtain_walls":[{"offset":[0,-90]}],
@@ -88,7 +90,12 @@ def validate(sp):
             if p['view'] in placed: err.append('view %s placed twice (Revit allows one sheet per plan view)'%p['view'])
             placed.add(p['view'])
         if len(s.get('viewports',[]))>9: err.append('sheet %s: at most 9 viewports'%s['number'])
-    for kind in ('detail_lines','view_text'):
+    roomwalls={'%s.%s'%(r['id'],n) for r in sp.get('rooms',[]) if 'id' in r for n in ('south','east','north','west')}
+    for k,a in enumerate(sp.get('dimensions',[])):
+        if a['view'] not in vn: err.append('dimension %d: unknown view %s'%(k,a['view']))
+        for n in a['walls']:
+            if n not in roomwalls: err.append('dimension %d: %s is not a room wall (writer dimensions need the JOINED walls of a `rooms` entry with an "id", e.g. "office.west"; other walls: finishing pass or tools/add_dimensions.py)'%(k,n))
+    for kind in ('detail_lines','view_text','filled_regions'):
         for k,a in enumerate(sp.get(kind,[])):
             if a['view'] not in vn: err.append('%s %d: unknown view %s'%(kind,k,a['view']))
     for k,gd in enumerate(sp.get('grids',[])):
@@ -159,6 +166,8 @@ def build(sp,out):
     for o in sp.get('topography',[]): S.topo(o['offset'][0],o['offset'][1])
     for a in sp.get('detail_lines',[]): S.detail_line(vid[a['view']],tuple(a['from']),tuple(a['to']))
     for a in sp.get('view_text',[]): S.view_text(vid[a['view']],a['x'],a['y'],a['text'])
+    for a in sp.get('dimensions',[]): S.dimension(vid[a['view']],wid[a['walls'][0]][0],wid[a['walls'][1]][0],a['at'])
+    for a in sp.get('filled_regions',[]): S.filled_region(vid[a['view']],a['x'],a['y'],a['w'],a['d'])
     S.man['names']={'walls':{k:v[0] for k,v in wid.items()},'levels':{k:v for k,v in lid.items()},'views':dict(vid),'sheets':{x['number']:S.man['sheets'][i][0] for i,x in enumerate(sp.get('sheets',[]))}}
     S.commit(out); return S.counts
 
