@@ -5,7 +5,9 @@ import sys,os,re,subprocess; WL=os.path.expanduser('~/rvt-research/write-lab'); 
 import guest
 year,name=int(sys.argv[1]),sys.argv[2]; tag='vgs_%s_%d'%(name,year); R=os.path.expanduser('~/rvt-research'); out=R+'/vg-scenes/%d_vg_%s.rte'%(year,name); os.makedirs(R+'/vg-scenes',exist_ok=True)
 seed=os.environ.get('SEED') or R+'/rosetta/%d_house_base.rte'%year
-cs=open(WL+'/jobs/vg_%s.cs'%name).read().replace('__SEED__','C:\\wl\\%s_seed.rte'%tag).replace('__OUT__','C:\\wl\\out\\%s.rte'%tag)
+PRE=open(WL+'/jobs/vg_prelude.cs').read()
+VARIANT='1' if name.endswith('_var') else '0'; jobname=name[:-4] if name.endswith('_var') else name
+cs=open(WL+'/jobs/vg_%s.cs'%jobname).read().replace('__VARIANT__',VARIANT).replace('//PRELUDE',PRE).replace('__SEED__','C:\\wl\\%s_seed.rte'%tag).replace('__OUT__','C:\\wl\\out\\%s.rte'%tag)
 if not os.environ.get('SKIPBUILD'):
   with guest.vmlock():
     guest.put(seed,'C:/wl/%s_seed.rte'%tag); p=guest.fresh(year); o=guest.run_job(year,p,cs,tag,900); print(o[-700:]); open("/tmp/claude-1000/vgbuild_full.txt","w").write(o)
