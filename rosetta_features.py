@@ -601,3 +601,38 @@ F['view_tags_types']=_vf("(tag types) copy the Wall, Door and Window tag FamilyS
    if (sym != null) { var cp = ElementTransformUtils.CopyElements(src, new List<ElementId> { sym.Id }, d, Transform.Identity, new CopyPasteOptions()); out_ += stem + " copied " + cp.Count + " (" + sym.Name + ");"; } else out_ += stem + " nosym;"; src.Close(false); }
   catch (Exception ex) { out_ += stem + "ERR " + ex.Message.Split((char)10)[0] + ";"; } }
 """)
+
+# ---------------- more SHIFT rosettas (2026-10-17, c3-writer): beams, wall + foundation, MEP duct/pipe, group; variant translated (+100,+50,0) ----------------
+F['beam_shift']=("[SEED house_base] two structural framing beams (first symbol UB305x165x40) on Level 1: (60,70,10)-(80,70,10) and (60,70,10)-(60,90,10); variant translated (+100,+50)",r'''
+double DX = v == 1 ? 100 : 0, DY = v == 1 ? 50 : 0;
+using (var t = new Transaction(d, "beam")) { t.Start();
+ var sym = new FilteredElementCollector(d).OfCategory(BuiltInCategory.OST_StructuralFraming).WhereElementIsElementType().Cast<FamilySymbol>().First(); if (!sym.IsActive) sym.Activate(); d.Regenerate();
+ var b1 = d.Create.NewFamilyInstance(Line.CreateBound(new XYZ(60+DX,70+DY,10), new XYZ(80+DX,70+DY,10)), sym, l1, Autodesk.Revit.DB.Structure.StructuralType.Beam);
+ var b2 = d.Create.NewFamilyInstance(Line.CreateBound(new XYZ(60+DX,70+DY,10), new XYZ(60+DX,90+DY,10)), sym, l1, Autodesk.Revit.DB.Structure.StructuralType.Beam);
+ t.Commit(); out_ += "beams=" + b1.Id + "," + b2.Id; }
+''')
+F['wallfound_shift']=("[SEED house_base] wall (first basic WallType) (60,100)-(80,100) height 9 on Level 1 with a continuous WallFoundation (first WallFoundationType); variant translated (+100,+50)",r'''
+double DX = v == 1 ? 100 : 0, DY = v == 1 ? 50 : 0;
+using (var t = new Transaction(d, "wf")) { t.Start();
+ var wt = new FilteredElementCollector(d).OfClass(typeof(WallType)).Cast<WallType>().First(x => x.Kind == WallKind.Basic);
+ var w = Wall.Create(d, Line.CreateBound(new XYZ(60+DX,100+DY,0), new XYZ(80+DX,100+DY,0)), wt.Id, l1.Id, 9, 0, false, false); d.Regenerate();
+ var ft = new FilteredElementCollector(d).OfClass(typeof(WallFoundationType)).First();
+ var f = WallFoundation.Create(d, ft.Id, w.Id); t.Commit(); out_ += "wall=" + w.Id + " found=" + f.Id; }
+''')
+F['duct_shift']=("[SEED house_base] one straight Duct (first MechanicalSystemType, first DuctType) (60,110,9)-(80,110,9) on Level 1 plus one straight Pipe (first PipingSystemType/PipeType) (60,114,8)-(80,114,8); variant translated (+100,+50)",r'''
+double DX = v == 1 ? 100 : 0, DY = v == 1 ? 50 : 0;
+using (var t = new Transaction(d, "mep")) { t.Start();
+ var ms = new FilteredElementCollector(d).OfClass(typeof(Autodesk.Revit.DB.Mechanical.MechanicalSystemType)).First(); var dt = new FilteredElementCollector(d).OfClass(typeof(Autodesk.Revit.DB.Mechanical.DuctType)).First();
+ var du = Autodesk.Revit.DB.Mechanical.Duct.Create(d, ms.Id, dt.Id, l1.Id, new XYZ(60+DX,110+DY,9), new XYZ(80+DX,110+DY,9));
+ var ps = new FilteredElementCollector(d).OfClass(typeof(Autodesk.Revit.DB.Plumbing.PipingSystemType)).First(); var pt = new FilteredElementCollector(d).OfClass(typeof(Autodesk.Revit.DB.Plumbing.PipeType)).First();
+ var pi = Autodesk.Revit.DB.Plumbing.Pipe.Create(d, ps.Id, pt.Id, l1.Id, new XYZ(60+DX,114+DY,8), new XYZ(80+DX,114+DY,8));
+ t.Commit(); out_ += "duct=" + du.Id + " pipe=" + pi.Id; }
+''')
+F['group_shift']=("[SEED house_base] two walls (60,120)-(70,120) and (70,120)-(70,130) height 9 on Level 1 made into a model Group; variant translated (+100,+50)",r'''
+double DX = v == 1 ? 100 : 0, DY = v == 1 ? 50 : 0;
+using (var t = new Transaction(d, "grp")) { t.Start();
+ var wt = new FilteredElementCollector(d).OfClass(typeof(WallType)).Cast<WallType>().First(x => x.Kind == WallKind.Basic);
+ var w1 = Wall.Create(d, Line.CreateBound(new XYZ(60+DX,120+DY,0), new XYZ(70+DX,120+DY,0)), wt.Id, l1.Id, 9, 0, false, false);
+ var w2 = Wall.Create(d, Line.CreateBound(new XYZ(70+DX,120+DY,0), new XYZ(70+DX,130+DY,0)), wt.Id, l1.Id, 9, 0, false, false); d.Regenerate();
+ var g = d.Create.NewGroup(new List<ElementId> { w1.Id, w2.Id }); t.Commit(); out_ += "group=" + g.Id; }
+''')
