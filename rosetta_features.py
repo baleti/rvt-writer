@@ -568,3 +568,10 @@ F['dbg_sweep']=famfeat("debug sweep variants",_HELP+r'''
  tr("zline_off123_XYat0", pz3, rzc(0,0,0));
  tr("zline_off123_XYatstart", pz3, rzc(1,2,3));
  tr("zline_off123_XYat1_2_0", pz3, rzc(1,2,0));''')
+
+F['view_dims_fit']=_vf("(dims) 9 linear dimensions between the interior faces of the two vertical walls (x=0, x=20) at y = 1,2.5,4,5.5,7,8.5,10,12,13.5 and 6 between the interior faces of the two horizontal walls (y=0, y=14) at x = 2,5,8,11,14,17; all in the VR plan (level VR1 z=20)","""
+ Func<bool, List<Wall>> wl = (vert) => new FilteredElementCollector(d).OfClass(typeof(Wall)).Cast<Wall>().Where(x => x.LevelId == vl.Id).Where(x => { var c = (x.Location as LocationCurve).Curve; return vert ? Math.Abs(c.GetEndPoint(0).X - c.GetEndPoint(1).X) < 0.01 : Math.Abs(c.GetEndPoint(0).Y - c.GetEndPoint(1).Y) < 0.01; }).OrderBy(x => { var c = (x.Location as LocationCurve).Curve; return vert ? c.GetEndPoint(0).X : c.GetEndPoint(0).Y; }).ToList();
+ var vw = wl(true); var hw = wl(false); out_ += "vwalls=" + vw.Count + " hwalls=" + hw.Count + ";";
+ foreach (double y in new double[] { 1, 2.5, 4, 5.5, 7, 8.5, 10, 12, 13.5 }) { try { var ra = new ReferenceArray(); ra.Append(HostObjectUtils.GetSideFaces(vw.First(), ShellLayerType.Interior)[0]); ra.Append(HostObjectUtils.GetSideFaces(vw.Last(), ShellLayerType.Interior)[0]); d.Create.NewDimension(vp, Line.CreateBound(new XYZ(0, y, 20), new XYZ(20, y, 20)), ra); out_ += "dimV" + y + " ok;"; } catch (Exception ex) { out_ += "dimV" + y + "ERR " + ex.Message.Split((char)10)[0] + ";"; } }
+ foreach (double x in new double[] { 2, 5, 8, 11, 14, 17 }) { try { var ra = new ReferenceArray(); ra.Append(HostObjectUtils.GetSideFaces(hw.First(), ShellLayerType.Interior)[0]); ra.Append(HostObjectUtils.GetSideFaces(hw.Last(), ShellLayerType.Interior)[0]); d.Create.NewDimension(vp, Line.CreateBound(new XYZ(x, 0, 20), new XYZ(x, 14, 20)), ra); out_ += "dimH" + x + " ok;"; } catch (Exception ex) { out_ += "dimH" + x + "ERR " + ex.Message.Split((char)10)[0] + ";"; } }
+""")

@@ -630,3 +630,43 @@ def make_joined_rect(g,JT,wall_nids,level_id,x0,y0,W,D,z,extra_map=None):
         row=bytearray(rep_many(T['row'],idmap)); row[0:8]=nid.to_bytes(8,'little')
         out.append((bytes(parts['hdr']),bytes(rec),item,nid,bytes(row)))
     return out
+
+# ---------------- linear dimensions between the faces of two parallel walls (template: rosetta/<year>_view_dims_fit_var; V = dim line along x at y=c, H = along y at x=c) ----------------
+DIM_K=0.695971241325342   # offset of the witness reference points from the dimension line (V: y=c+K, H: x=c-K), constant in the rosetta (15 dims)
+class DimTpl:
+    def __init__(self,gen):
+        new=[i for i in sorted(set(gen.e.m.ids)) if i>=301553 and gen.e.trace(i)[2]['class']=='LinearDimString']
+        self.T=gen.template(new[4])          # V dim at y=7
+        self.view=None; self.walls=None
+        L=self.T['log']; import re as _re
+        gi=lambda n,k=0: [o for nn,o,e,v in L if nn==n][k]
+        self.view=int(_re.search(r'(\d+)',str([v for n,o,e,v in L if n=='Element.m_ownerDBViewId'][0])).group(1))
+        self.wA=int(_re.search(r'(\d+)',str([v for n,o,e,v in L if n=='GeomRef.m_elemId'][0])).group(1)); self.wB=int(_re.search(r'(\d+)',str([v for n,o,e,v in L if n=='GeomRef.m_elemId'][1])).group(1))
+        self.gi=gi
+def make_dimension(g,DT,nid,plan_id,wA,wB,axis,fa,fb,ca,cb,c,z,triple):
+    """axis 'V': dimension line along x at y=c between faces x=fa and x=fb; 'H': along y at x=c between faces y=fa and y=fb (fa<fb).
+    ca,cb = (start,end) of the face of wall A/B along the other axis in the wall's own direction (face segment ends). wA,wB = wall ids with face fa/fb"""
+    T=DT.T; rec=bytearray(T['rec']); gi=DT.gi; V=(axis=='V'); pk=lambda o,*v: struct.pack_into('<%dd'%len(v),rec,o,*v)
+    var=os.environ.get('DIM_VARIANT','')
+    if var=='raw': m={DT.view:plan_id,T['tid']:nid}; rec=rep_many(T['rec'],m); rec=bytearray(rec); rec[4:12]=nid.to_bytes(8,'little'); return bytes(rep_many(T['hdr'],m)),g.stamp(bytes(rec)),restamp(bytes(rep_many(T['item'],m)),8),_row(g,T,nid,8,triple)
+    k=DIM_K if V else -DIM_K; val=fb-fa; mid=(fa+fb)/2
+    P=lambda a,s: (a,s,z) if V else (s,a,z)               # face coordinate a (x for V), along coordinate s (y for V)
+    # witness points
+    def pt(face,s): return (face,s,z) if V else (s,face,z)
+    ON=lambda n: (not os.environ.get('DIM_ONLY')) or n in os.environ['DIM_ONLY'].split(',')
+    r0=gi('Dimension.m_refPnts')+4;   # 4-byte count prefix
+    if ON('refp'): pk(r0,*( (fa,c+k,z)+(fb,c+k,z) )) if V else pk(r0,*((c+k,fa,z)+(c+k,fb,z)))
+    for n in (('DimSegInfo.m_lockedValue','DimSegValue.m_value') if ON('val') else ()): pk(gi(n,0),val)
+    if ON('origin'): pk(gi('DimSegInfo.m_origin'),*((mid,c,z) if V else (c,mid,z)))
+    if ON('old'): pk(gi('Dimension.m_oldOrigin'),*((0.0,c,z) if V else (c,0.0,z)))
+    if ON('gline'): pk(gi('GLine.m_origin'),*((0.0,c,z) if V else (c,0.0,z))); pk(gi('GLine.m_dirVec'),*((1.0,0.0,0.0) if V else (0.0,1.0,0.0)))
+    for w,(face,(s0,s1)) in enumerate(((fa,ca),(fb,cb)) if ON('wit') else ()):
+        near=0 if abs(c-s0)<=abs(c-s1) else 1                    # nearest face end first (tie: the wall's start); idx = its index in the wall's own direction
+        a_,b_=((s0,s1) if near==0 else (s1,s0))
+        o=gi('WitnessRefInfo.m_oldRefSegEnds',w); pk(o,*(pt(face,a_)+pt(face,b_)))
+        pk(gi('WitnessRefInfo.m_refLength',w),abs(s1-s0)); struct.pack_into('<i',rec,gi('WitnessRefInfo.m_oldRefSegEndIdx',w),near)
+    if os.environ.get('DIM_GEOMTAG'):
+        for w in (0,1): struct.pack_into('<I',rec,gi('GeomRef.m_geomTag',w),int(os.environ['DIM_GEOMTAG']))
+    if var!='noref': struct.pack_into('<Q',rec,gi('GeomRef.m_elemId',0),wA); struct.pack_into('<Q',rec,gi('GeomRef.m_elemId',1),wB)
+    m={DT.view:plan_id,T['tid']:nid}; hdr=rep_many(T['hdr'],m); rec=rep_many(rec,m); item=rep_many(T['item'],m); rec=bytearray(rec); rec[4:12]=nid.to_bytes(8,'little')
+    return bytes(hdr),g.stamp(bytes(rec)),restamp(bytes(item),8),_row(g,T,nid,8,triple)
