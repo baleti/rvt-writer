@@ -105,11 +105,11 @@ try { Phase ph1 = null; foreach (Phase pp in d.Phases) if (pp.Name == "Phase 1")
       try { if (e.CreatedPhaseId == ph1.Id) continue; var pm = e.get_Parameter(BuiltInParameter.PHASE_CREATED); if (pm != null && !pm.IsReadOnly) { pm.Set(ph1.Id); rephased++; } else rephfail++; } catch { rephfail++; } }
     tp.Commit(); } } catch (Exception ex) { errs.Add("rephase " + ex.Message.Replace("\n", " ")); }
 Console.WriteLine("REPHASED " + rephased + " failed " + rephfail);
-d.SaveAs(@"C:\wl\out\fa_out.rte", new SaveAsOptions { OverwriteExistingFile = true }); d.Close(false);
+d.SaveAs(@"C:\wl\out\fa_out___Y__.rte", new SaveAsOptions { OverwriteExistingFile = true }); d.Close(false);
 Console.WriteLine("FINISHED made=" + string.Join(",", made.Select(k => k.Key + ":" + k.Value)) + " failed=" + string.Join(",", failed.Select(k => k.Key + ":" + k.Value)) + " errors=" + string.Join(" | ", errs));
-'''.replace('__ROWS__',rows).replace('__OPENINGS__','true' if F.get('openings') else 'false').replace('__TOUCH__','true' if F.get('touch_walls') else 'false')
+'''.replace('__Y__',str(year)).replace('__ROWS__',rows).replace('__OPENINGS__','true' if F.get('openings') else 'false').replace('__TOUCH__','true' if F.get('touch_walls') else 'false')
 with guest.vmlock():
     guest.put(fin,'C:/wl/fa_in.rte'); p=guest.fresh(year)
     o=guest.run_job(year,p,CS,'fa',1200); print(o[-2500:])
-    if 'FINISHED' in o: guest.get('C:/wl/out/fa_out.rte',fout)
+    if 'FINISHED' in o: guest.get('C:/wl/out/fa_out_%d.rte'%year,fout)
     guest.down(year)
