@@ -38,6 +38,10 @@ Years: **2024** and **2026** (`"year"`). Units: feet.
 | `rooms` | `{id?, level, x, y, width, depth, name, number}` | a room enclosed by 4 writer-made JOINED walls (9 ft, Revit's join records fitted from rosetta rooms_lv); Revit computes the area itself (measured: exactly the interior to the wall faces). One room per level, not on L1; walls are addressable as `<id>.south/east/north/west` |
 | `topography` | `{offset:[dx,dy]}` | translated copy of a Revit-made 5-point toposurface (40x40 ft hill, z 0..5) |
 | `curtain_walls` | `{offset:[dx,dy]}` | translated copy of a Revit-made curtain wall (60,62)-(84,62), 12 ft, 4x3 panels, 17 mullions |
+| `beams` | `{offset:[dx,dy]}` | translated copy of Revit-made structural framing: two beams UB305x165x40 at z 10 ft ((60,70)-(80,70), (60,70)-(60,90)) |
+| `wall_foundations` | `{offset:[dx,dy]}` | translated copy of a Revit-made wall (60,100)-(80,100), 9 ft, with a continuous wall foundation |
+| `mep` | `{offset:[dx,dy]}` | translated copy of one straight Duct (60,110,9)-(80,110,9) + one straight Pipe (60,114,8)-(80,114,8), first system/duct/pipe types of the template |
+| `groups` | `{offset:[dx,dy]}` | translated copy of a Revit model Group of two walls (60,120)-(70,120)-(70,130), 9 ft |
 
 Stairs, railings and curtain walls are *shift* objects: the writer clones every record of the Revit-made
 object (learnt from a base/variant pair where Revit moved it by (+100,+50)) and moves all position fields.
@@ -79,7 +83,7 @@ Names of walls/levels/views/sheets resolve through the manifest `IN.rte.json` wr
 ## Known limits (honest)
 - windows/doors do not cut the host wall in pure writer output except the fitted case (60 ft wall along +x on level 1, k<=3 windows); use the finishing pass (`openings`) for any other geometry
 - rooms: writer-built only as `rooms` boxes (4 joined 9 ft walls, one room per level, not on L1); rooms bounded by other walls, rooms on L1, several rooms per level: Revit finishing pass (`rooms`). Tags: finishing pass only; rectangular FILLED REGIONS are pure writer (`filled_regions` in the scene spec, `S.filled_region`; scene regions1 PASS 2024+2026); PURE-WRITER linear dimensions (scene spec key `dimensions: [{view, walls:["office.west","office.east"], at}]` or `S.dimension(plan, wallA, wallB, c)`; specs/dims_example_<year>.json) work on the walls of `room_box` (4 JOINED walls with Revit-made join records), full protocol PASS 2024+2026; walls from plain `S.wall` (unjoined) crash Revit on open, see below; linear dimensions between two wall faces can be written by `tools/add_dimensions.py` on a file whose walls Revit already regenerated (e.g. the output of `rvt_write.py finish` with openings/rooms/touch_walls): Revit rejects a pure-writer dimension that references an UNREGENERATED writer wall (InternalException on open), regenerated walls accept it (2024+2026, API audit off/on, UI, reopen)
-- not yet writer-built: roofs/ceilings of free size (fixed 30x20 shape only), stairs/railings/curtain walls of free shape, MEP, groups, worksets, design options, tags, filled regions, schedules on sheets
+- not yet writer-built: roofs/ceilings of free size (fixed 30x20 shape only), stairs/railings/curtain walls/beams/MEP/groups of free shape (shift objects: fixed shape, free position), worksets, design options, tags, filled regions, schedules on sheets
 - 2024: Revit refuses to place an EMPTY plan view on a sheet (Viewport.Create returns null); the writer's viewports are tested on plans with content
 
 ## Revit-validity notes (2026-10-15)
