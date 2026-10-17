@@ -103,7 +103,7 @@ class FloorTpl:
         self.T={r:gen.template(i) for r,i in zip(FLOOR_ROLES,ids8)}; self.ids=ids8
 def make_floor(g,FT,nids,x0,y0,W,D,z=0.0,level_id=355):
     """nids: 8 new ids in role order. returns list of (hdr,rec,item,nid,row_template_role)"""
-    assert W>=D,'rect floors fitted for W>=D only'
+    pass  # any W,D (portrait checked 2026-10-17)
     ft=_ffeats(x0,y0,W,D); fit=_floorfit(); out=[]; idmap={FT.ids[i]:nids[i] for i in range(8)}; idmap[355]=level_id
     slope=_json.load(open(os.path.expanduser('~/rvt-research/write-lab/files/floorslope%s.json'%_suf())))
     for r,nid in zip(FLOOR_ROLES,nids):
