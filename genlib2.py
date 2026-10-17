@@ -646,7 +646,8 @@ class DimTpl:
 def make_dimension(g,DT,nid,plan_id,wA,wB,axis,fa,fb,ca,cb,c,z,triple):
     """axis 'V': dimension line along x at y=c between faces x=fa and x=fb; 'H': along y at x=c between faces y=fa and y=fb (fa<fb).
     ca,cb = (start,end) of the face of wall A/B along the other axis in the wall's own direction (face segment ends). wA,wB = wall ids with face fa/fb"""
-    T=DT.T; rec=bytearray(T['rec']); gi=DT.gi; V=(axis=='V'); pk=lambda o,*v: struct.pack_into('<%dd'%len(v),rec,o,*v)
+    T=DT.T; m={DT.view:plan_id,T['tid']:nid}; rec=bytearray(rep_many(T['rec'],m)); gi=DT.gi;   # remap ids FIRST: inserted wall ids may equal a template id
+    V=(axis=='V'); pk=lambda o,*v: struct.pack_into('<%dd'%len(v),rec,o,*v)
     var=os.environ.get('DIM_VARIANT','')
     if var=='raw': m={DT.view:plan_id,T['tid']:nid}; rec=rep_many(T['rec'],m); rec=bytearray(rec); rec[4:12]=nid.to_bytes(8,'little'); return bytes(rep_many(T['hdr'],m)),g.stamp(bytes(rec)),restamp(bytes(rep_many(T['item'],m)),8),_row(g,T,nid,8,triple)
     k=DIM_K if V else -DIM_K; val=fb-fa; mid=(fa+fb)/2
@@ -668,5 +669,55 @@ def make_dimension(g,DT,nid,plan_id,wA,wB,axis,fa,fb,ca,cb,c,z,triple):
     if os.environ.get('DIM_GEOMTAG'):
         for w in (0,1): struct.pack_into('<I',rec,gi('GeomRef.m_geomTag',w),int(os.environ['DIM_GEOMTAG']))
     if var!='noref': struct.pack_into('<Q',rec,gi('GeomRef.m_elemId',0),wA); struct.pack_into('<Q',rec,gi('GeomRef.m_elemId',1),wB)
-    m={DT.view:plan_id,T['tid']:nid}; hdr=rep_many(T['hdr'],m); rec=rep_many(rec,m); item=rep_many(T['item'],m); rec=bytearray(rec); rec[4:12]=nid.to_bytes(8,'little')
+    hdr=rep_many(T['hdr'],m); item=rep_many(T['item'],m); rec[4:12]=nid.to_bytes(8,'little')
     return bytes(hdr),g.stamp(bytes(rec)),restamp(bytes(item),8),_row(g,T,nid,8,triple)
+
+def dim_args(A,B,half=0.22719816272965873):
+    """A,B = manifest wall rows [id,x0,y0,x1,y1,...]: faces on the right-hand side of the wall direction (Revit's 'Interior' side, geometry tag 6), parallel axis-aligned walls.
+    returns (axis,fa,fb,ca,cb,idA,idB) with fa<fb (face coordinates) and ca/cb the face ends (wall start, end) along the other axis"""
+    def face(w):
+        ux,uy=w[3]-w[1],w[4]-w[2]; L=math.hypot(ux,uy); ux,uy=ux/L,uy/L; nx,ny=uy,-ux
+        return (ux,uy,w[1]+nx*half,w[2]+ny*half,w[3]+nx*half,w[4]+ny*half)
+    fa,fb=face(A),face(B); vert=abs(fa[0])<1e-6 and abs(fb[0])<1e-6; horiz=abs(fa[1])<1e-6 and abs(fb[1])<1e-6
+    assert vert or horiz,'dimension: walls must be parallel and axis aligned'
+    if vert: ca=(fa[3],fa[5]); cb=(fb[3],fb[5]); xa,xb=fa[2],fb[2]; axis='V'
+    else: ca=(fa[2],fa[4]); cb=(fb[2],fb[4]); xa,xb=fa[3],fb[3]; axis='H'
+    ia,ib=A[0],B[0]
+    if xa>xb: xa,xb,ca,cb,ia,ib=xb,xa,cb,ca,ib,ia
+    return axis,xa,xb,ca,cb,ia,ib
+
+# ---------------- filled regions (rectangles): 7 body records (SketchPlane, VarSketch, FilledRegion, 4 CurveElem) + 2 LinearDimString per region; template = region 0 of rosetta/<year>_view_regions_fit_var,
+# every varying double fitted linearly in (x,y,w,d,x2,y2,area,perim,cx,cy) by fit_regions.py (files/regfit_<year>.json); the FilledRegion item carries a spatial key (genlib.spatial_key of the outline, 8/8 exact) at 172 ----------------
+class RegionTpl:
+    def __init__(self,gen,year):
+        import json as _j,re as _re
+        new=sorted(set(gen.e.m.ids)-set(rvtgen_ids(year))); cls={i:gen.template(i)['cls'] for i in new}
+        body=[i for i in new if cls[i]!='LinearDimString']; lds=[i for i in new if cls[i]=='LinearDimString']
+        self.ids=body[:7]+lds[:2]; self.T=[gen.template(i) for i in self.ids]
+        self.fit=_j.load(open(os.path.expanduser('~/rvt-research/write-lab/files/regfit_%d.json'%year)))
+        self.view=int(_re.search(r'(\d+)',str([v for n,o,e,v in self.T[3]['log'] if n=='Element.m_ownerDBViewId'][0])).group(1))
+def rvtgen_ids(year):
+    import rvtgen
+    return rvtgen.Gen(os.path.expanduser('~/rvt-research/rosetta/%d_view_regions_fit_base.rte'%year)).e.m.ids
+def make_region(g,RT,nids,plan_id,x,y,w,d,z,triple,z0=20.0):
+    import fitgen
+    feat=dict(x=x,y=y,w=w,d=d,x2=x+w,y2=y+d,one=1.0,area=w*d,perim=2*(w+d),cx=x+w/2,cy=y+d/2)
+    idmap=dict(zip(RT.ids,nids)); idmap[RT.view]=plan_id; out=[]
+    zb0,zb1=struct.pack('<d',z0),struct.pack('<d',z)
+    for r,(T,nid) in enumerate(zip(RT.T,nids)):
+        parts={}
+        for key in ('hdr','rec','item'):
+            b=bytearray(T[key]); fit=RT.fit.get('%d.%s'%(r,key))
+            if z!=z0:                                   # level elevation first (a fitted value may legitimately equal the template z)
+                k=-1
+                while True:
+                    k=bytes(b).find(zb0,k+1)
+                    if k<0: break
+                    b[k:k+8]=zb1
+            if fit and fit['found']: b=fitgen.apply_fit(b,fit,feat)
+            parts[key]=bytearray(rep_many(b,idmap))
+        rec=parts['rec']; rec[4:12]=nid.to_bytes(8,'little'); setphase(parts['hdr']); setphase(rec); setphase(parts['item'])
+        if T['cls']=='FilledRegion': parts['item'][172:176]=genlib.spatial_key((x,y,z,x+w,y+d,z))
+        rec=g.stamp(bytes(rec)); row=bytearray(rep_many(T['row'],idmap)); row[0:8]=nid.to_bytes(8,'little'); struct.pack_into('<3I',row,8,*triple)
+        out.append((bytes(parts['hdr']),rec,restamp(bytes(parts['item']),8),nid,bytes(row)))
+    return out
