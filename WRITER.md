@@ -79,7 +79,7 @@ Names of walls/levels/views/sheets resolve through the manifest `IN.rte.json` wr
 ## Known limits (honest)
 - windows/doors do not cut the host wall in pure writer output except the fitted case (60 ft wall along +x on level 1, k<=3 windows); use the finishing pass (`openings`) for any other geometry
 - rooms: writer-built only as `rooms` boxes (4 joined 9 ft walls, one room per level, not on L1); rooms bounded by other walls, rooms on L1, several rooms per level: Revit finishing pass (`rooms`). Dimensions, tags and filled regions: finishing pass only
-- not yet writer-built: roofs/ceilings of free size (fixed 30x20 shape only), stairs/railings/curtain walls of free shape, MEP, groups, worksets, design options, dimensions, tags, filled regions, schedules on sheets
+- not yet writer-built: roofs/ceilings of free size (fixed 30x20 shape only), stairs/railings/curtain walls of free shape, MEP, groups, worksets, design options, dimensions (records decoded, Revit rejects refs to writer-made walls, see HANDOFF-c5-writer.md), tags, filled regions, schedules on sheets
 - 2024: Revit refuses to place an EMPTY plan view on a sheet (Viewport.Create returns null); the writer's viewports are tested on plans with content
 
 ## Revit-validity notes (2026-10-15)
