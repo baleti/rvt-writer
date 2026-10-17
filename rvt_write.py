@@ -108,7 +108,7 @@ def validate(sp):
         if lvn in seen: err.append('room %d: one writer room per level (writer limit)'%k)
         seen.add(lvn)
         if min(r['width'],r['depth'])<3: err.append('room %d: width/depth must be >= 3 ft'%k)
-    for kind in ('stairs','railings','curtain_walls','roofs','topography'):
+    for kind in ('stairs','railings','curtain_walls','roofs','topography','beams','wall_foundations','mep','groups'):
         for k,o in enumerate(sp.get(kind,[])):
             if len(o.get('offset',[]))!=2: err.append('%s %d: offset [dx,dy] required'%(kind,k))
     if err: raise SpecError('\n'.join(err))
@@ -127,7 +127,7 @@ def model_centre(sp,level):
     for f in sp.get('floors',[]):
         if f.get('level',LEVEL1) in show: xs+=[f['x'],f['x']+f['width']]; ys+=[f['y'],f['y']+f['depth']]
     if LEVEL1 in show:      # L1 objects placed by offset: Revit-made base extents (rosettas) moved by the offset; grids by their ends
-        BASE={'stairs':((60,36),(75,44)),'railings':((60,50),(80,58)),'curtain_walls':((60,62),(84,62)),'roofs':((60,-100),(90,-80)),'topography':((0,0),(40,40))}
+        BASE={'stairs':((60,36),(75,44)),'railings':((60,50),(80,58)),'curtain_walls':((60,62),(84,62)),'roofs':((60,-100),(90,-80)),'beams':((60,70),(80,90)),'wall_foundations':((60,100),(80,100)),'mep':((60,110),(80,114)),'groups':((60,120),(70,130)),'topography':((0,0),(40,40))}
         for kind,(a,b) in BASE.items():
             for o in sp.get(kind,[]): xs+=[a[0]+o['offset'][0],b[0]+o['offset'][0]]; ys+=[a[1]+o['offset'][1],b[1]+o['offset'][1]]
         for gd in sp.get('grids',[]): xs+=[gd['from'][0],gd['to'][0]]; ys+=[gd['from'][1],gd['to'][1]]
@@ -161,7 +161,7 @@ def build(sp,out):
             S.place(vid[p['view']],sh,tuple(p['centre']),model_centre(sp,[v for v in sp['views'] if v['name']==p['view']][0].get('level',LEVEL1)))
     for t in sp.get('text',[]): S.text(t['x'],t['y'],t['text'])
     for gd in sp.get('grids',[]): S.grid(gd['name'],tuple(gd['from']),tuple(gd['to']))
-    for kind,feat in (('stairs','stair_shift'),('railings','railing_shift'),('curtain_walls','curtain_shift'),('roofs','roof_shift')):
+    for kind,feat in (('stairs','stair_shift'),('railings','railing_shift'),('curtain_walls','curtain_shift'),('roofs','roof_shift'),('beams','beam_shift'),('wall_foundations','wallfound_shift'),('mep','duct_shift'),('groups','group_shift')):
         for o in sp.get(kind,[]): S.shifted(feat,o['offset'][0],o['offset'][1])
     for o in sp.get('topography',[]): S.topo(o['offset'][0],o['offset'][1])
     for a in sp.get('detail_lines',[]): S.detail_line(vid[a['view']],tuple(a['from']),tuple(a['to']))
