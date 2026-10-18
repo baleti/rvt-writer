@@ -134,8 +134,45 @@ class Scene:
         RT=self._roomtpl(); nids=(self.nid(),self.nid()); z=self.lvz.get(level,0.0)
         for hd,rec,it,nid,row in genlib2.make_room(self.g,RT,nids,wall_ids,level,x0,y0,W,D,z,name,number):
             r=bytearray(row); struct.pack_into('<3I',r,8,*self.tr); self.g.new.append((hd,rec,it,nid)); self.g.rows.append(bytes(r))
-        self.ptopo=getattr(self,'ptopo',[])+[(level,nids[1],nids[0])]
+        self.ptopo=getattr(self,'ptopo',[])+[(level,nids[1],[nids[0]])]
         self.man.setdefault('rooms',[]).append([nids[0],name,number,level,W,D]); self.man.setdefault('parts',[]).append([nids[1],'x']); self.counts['room']=self.counts.get('room',0)+1; return nids[0]
+    def rooms_level(self,level,rects):
+        """N disjoint rectangular rooms on ONE level, each bounded by its own 4 joined walls: rects = [(x0,y0,W,D,name,number)]. One LevelRoomPlan for the
+        level (genroom.merge of the one-room plans, circuits in reverse creation order, as Revit writes it). Returns [(wall ids, room id)]."""
+        import genroom
+        if getattr(self,'JT',None) is None: self.JT=genlib2.JoinRectTpl(self.year)
+        n0=len(self.g.new); RT=self._roomtpl(); z=self.lvz.get(level,0.0); plan_id=self.nid(); res=[]; plans=[]; roomrows=[]; N=len(rects)
+        Lr={n:(o,e) for n,o,e,_ in RT.R['log']}; cc=Lr['RoomElem.m_cachedCircuitId'][0]
+        for j,(x0,y0,W,D,name,number) in enumerate(rects):
+            wn=[self.nid() for _ in range(4)]
+            for hd,rec,it,nid,row in genlib2.make_joined_rect(self.g,self.JT,wn,level,x0,y0,W,D,z):
+                r=bytearray(row); struct.pack_into('<3I',r,8,*self.tr); self.g.new.append((hd,rec,it,nid)); self.g.rows.append(bytes(r))
+            P=[(x0,y0),(x0+W,y0),(x0+W,y0+D),(x0,y0+D)]
+            for k,i in enumerate(wn):
+                self.man.setdefault('walls',[]).append([i,P[k][0],P[k][1],P[(k+1)%4][0],P[(k+1)%4][1],9.0,level,z,None,None,{}]); self.reg.setdefault(self.wall_seed,[]).append(i)
+            self.counts['wall']=self.counts.get('wall',0)+4
+            rid=self.nid(); outs=genlib2.make_room(self.g,RT,(rid,plan_id),wn,level,x0,y0,W,D,z,name,number)
+            hd,rec,it,nid,row=outs[0]; rec=bytearray(rec); struct.pack_into('<i',rec,cc,genroom.circuit_ids(N)[j]); rec=self.g.stamp(bytes(rec)); roomrows.append((hd,rec,it,nid,row)); plans.append(outs[1])
+            self.man.setdefault('rooms',[]).append([rid,name,number,level,W,D]); self.counts['room']=self.counts.get('room',0)+1; res.append((wn,rid))
+        for hd,rec,it,nid,row in roomrows:
+            r=bytearray(row); struct.pack_into('<3I',r,8,*self.tr); self.g.new.append((hd,rec,it,nid)); self.g.rows.append(bytes(r))
+        # merged plan: record, header id lists = union over the one-room plans
+        hd0,rec0,it0,nid0,row0=plans[0]; rec=bytearray(genroom.merge([p[1] for p in plans]))
+        rec[4:12]=plan_id.to_bytes(8,'little'); rec=self.g.stamp(bytes(rec))
+        hdr=hd0; hl=RT.P['hlog']
+        adds={}
+        for n,o,e,_ in hl:
+            if n in ('ElementParents.m_deletion','ElementParents.m_regenOnly','ElementParents.m_nonDetermRegenChildren') and e-o>=4:
+                ids=set()
+                for p in plans:
+                    h=p[0]; c=struct.unpack_from('<I',h,o)[0]; ids|={int.from_bytes(h[o+4+8*k:o+12+8*k],'little') for k in range(c)}
+                adds[n]=sorted(ids)
+        hdr=genlib2.hdr_list_add(hd0,hl,adds)
+        r=bytearray(row0); struct.pack_into('<3I',r,8,*self.tr); self.g.new.append((hdr,rec,it0,plan_id)); self.g.rows.append(bytes(r))
+        z_=sorted(zip(self.g.new[n0:],self.g.rows[n0:]),key=lambda a:a[0][3]); self.g.new[n0:]=[a for a,_ in z_]; self.g.rows[n0:]=[b for _,b in z_]
+        self.ptopo=getattr(self,'ptopo',[])+[(level,plan_id,[x[1] for x in res])]
+        self.man.setdefault('parts',[]).append([plan_id,'x'])
+        return res
     def room_box(self,level,x0,y0,W,D,name,number):
         """4 JOINED walls (9 ft, Revit-made join records fitted from rosetta rooms_lv) around (x0,y0,W,D) + a room enclosed by them, on level (id)"""
         if getattr(self,'JT',None) is None: self.JT=genlib2.JoinRectTpl(self.year)
@@ -305,10 +342,10 @@ class Scene:
         for lv,plan,room in pts:
             ent=bytearray(tpl); ent[rel('PlanTopology.m_levelId'):rel('PlanTopology.m_levelId')+8]=lv.to_bytes(8,'little')
             ent[rel('PlanTopology.m_levelRoomPlanId'):rel('PlanTopology.m_levelRoomPlanId')+8]=plan.to_bytes(8,'little')
-            struct.pack_into('<I',ent,rel('PlanTopology.m_nextCircuitId'),2); ents+=bytes(ent)
+            struct.pack_into('<I',ent,rel('PlanTopology.m_nextCircuitId'),2*len(room)); ents+=bytes(ent)
         rec[s1:s1]=ents; struct.pack_into('<I',rec,s0,n+len(pts))
         hdr=genlib2.hdr_list_add(T['hdr'],T['hlog'],{'ElementParents.m_deletion':[x for lv,pl,_ in pts for x in (lv,pl)],
-            'ElementParents.m_regenOnly':[r for _,_,r in pts],'ElementParents.m_nonDetermRegenChildren':[r for _,_,r in pts]})
+            'ElementParents.m_regenOnly':[x for _,_,r in pts for x in r],'ElementParents.m_nonDetermRegenChildren':[x for _,_,r in pts for x in r]})
         g.replace_existing(apt,hdr=hdr,rec=bytes(rec)); self.man.setdefault('edited',[]).append(apt)
     def _rephase_seed(self):
         """The seed house was made through the API in 'Phase 3' while the template's own views (and the 3D view Revit's GUI creates) show 'Phase 1': there every Phase 3 element

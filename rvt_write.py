@@ -104,8 +104,9 @@ def validate(sp):
         lvn=r.get('level',LEVEL1)
         if lvn not in lv: err.append('room %d: unknown level %s'%(k,lvn))
         if lvn==LEVEL1: err.append('room %d: writer rooms need a level of their own (L1 already has the seed room plan); use the finishing pass for L1'%k)
-        if lvn in seen: err.append('room %d: one writer room per level (writer limit)'%k)
-        seen.add(lvn)
+        for k2,r2 in enumerate(sp.get('rooms',[])[:k]):
+            if r2.get('level',LEVEL1)==lvn and r['x']<r2['x']+r2['width']+1 and r2['x']<r['x']+r['width']+1 and r['y']<r2['y']+r2['depth']+1 and r2['y']<r['y']+r['depth']+1:
+                err.append('room %d: overlaps or touches (< 1 ft) room %d on the same level (writer rooms are disjoint boxes with their own walls)'%(k,k2))
         if min(r['width'],r['depth'])<3: err.append('room %d: width/depth must be >= 3 ft'%k)
     for kind in ('stairs','railings','curtain_walls','roofs','topography','beams','wall_foundations','mep','groups'):
         for k,o in enumerate(sp.get(kind,[])):
@@ -143,10 +144,13 @@ def build(sp,out):
         lv=w.get('level',LEVEL1)
         i=S.wall(tuple(w['from']),tuple(w['to']),float(w.get('height',10.0)),lid[lv],lvz[lv],mark=w.get('mark'),comments=w.get('comments'),values={pid[n]:v for n,v in (w.get('values') or {}).items()} or None)
         if 'id' in w: wid[w['id']]=(i,w)
-    for r in sp.get('rooms',[]):
-        ws,rid=S.room_box(lid[r['level']],r['x'],r['y'],r['width'],r['depth'],r.get('name','Room'),str(r.get('number','')))
-        if 'id' in r:
-            for nm,wi in zip(('south','east','north','west'),ws): wid['%s.%s'%(r['id'],nm)]=(wi,None)
+    bylv={}
+    for r in sp.get('rooms',[]): bylv.setdefault(r['level'],[]).append(r)
+    for lvn,rs in bylv.items():
+        res=S.rooms_level(lid[lvn],[(r['x'],r['y'],r['width'],r['depth'],r.get('name','Room'),str(r.get('number',''))) for r in rs])
+        for r,(ws,rid) in zip(rs,res):
+            if 'id' in r:
+                for nm,wi in zip(('south','east','north','west'),ws): wid['%s.%s'%(r['id'],nm)]=(wi,None)
     for f in sp.get('floors',[]): S.floor(f['x'],f['y'],f['width'],f['depth'],lid[f.get('level',LEVEL1)])
     for c in sp.get('columns',[]): S.column_lv(c['x'],c['y'],lid[c.get('base',LEVEL1)],lid[c['top']])
     for kind,fn in (('windows',S.window_lv),('doors',S.door_lv)):
