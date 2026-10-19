@@ -155,7 +155,7 @@ def build(sp,out):
         for r,(ws,rid) in zip(rs,res):
             if 'id' in r:
                 for nm,wi in zip(('south','east','north','west'),ws): wid['%s.%s'%(r['id'],nm)]=(wi,None)
-    for rf in sp.get('roof_rects',[]): S.roof(rf['x'],rf['y'],rf['width'],rf['depth'])
+    for rf in sp.get('roof_rects',[]): S.roof(rf['x'],rf['y'],rf['width'],rf['depth'],lid[rf.get('level',LEVEL1)])
     for f in sp.get('floors',[]): S.floor(f['x'],f['y'],f['width'],f['depth'],lid[f.get('level',LEVEL1)])
     for c in sp.get('columns',[]): S.column_lv(c['x'],c['y'],lid[c.get('base',LEVEL1)],lid[c['top']])
     for kind,fn in (('windows',S.window_lv),('doors',S.door_lv)):

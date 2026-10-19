@@ -82,7 +82,7 @@ for cls,items in M.items():
             ok=e[2] in ('ProfileRoof','FootPrintRoof','Roof') and vol.get(i,0)>0 and bool(bb)
             if bb:
                 lo=[float(v) for v in bb[0][2].split(',')]; hi=[float(v) for v in bb[0][3].split(',')]
-                ok=ok and abs(lo[0]-it[1])<0.05 and abs(lo[1]-it[2])<0.05 and abs(hi[0]-it[1]-it[3])<0.05 and abs(hi[1]-it[2]-it[4])<0.05
+                ok=ok and abs(lo[0]-it[1])<0.05 and abs(lo[1]-it[2])<0.05 and abs(hi[0]-it[1]-it[3])<0.05 and abs(hi[1]-it[2]-it[4])<0.05 and (len(it)<6 or abs(lo[2]-it[5])<0.05)
             if not ok: print('BAD roof',i,e[2:5],it,bb[:1],vol.get(i)); bad+=1
             else: print('roof',i,it[1:],'bbox ok volume',round(vol.get(i,0),2))
         if cls=='floors':
