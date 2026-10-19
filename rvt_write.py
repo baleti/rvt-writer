@@ -38,6 +38,7 @@ EXAMPLE={
  "curtain_walls":[{"offset":[0,-90]}],
  "roofs":[{"offset":[0,-120]}],
  "topography":[{"offset":[150,-100]}],
+ "roof_rects":[{"x":60,"y":-60,"width":40,"depth":26}],
  "rooms":[{"id":"office","level":"L3","x":60,"y":0,"width":20,"depth":14,"name":"Office","number":"301"}]
 }
 LEVEL1='L1'          # the seed's ground level (id 355, elevation 0)
@@ -108,6 +109,9 @@ def validate(sp):
             if r2.get('level',LEVEL1)==lvn and r['x']<r2['x']+r2['width']+1 and r2['x']<r['x']+r['width']+1 and r['y']<r2['y']+r2['depth']+1 and r2['y']<r['y']+r['depth']+1:
                 err.append('room %d: overlaps or touches (< 1 ft) room %d on the same level (writer rooms are disjoint boxes with their own walls)'%(k,k2))
         if min(r['width'],r['depth'])<3: err.append('room %d: width/depth must be >= 3 ft'%k)
+    for k,rf in enumerate(sp.get('roof_rects',[])):
+        if rf['width']<=rf['depth']: err.append('roof_rects %d: width must be > depth (writer limit)'%k)
+        if rf['width']<6 or rf['depth']<4: err.append('roof_rects %d: at least 6 x 4 ft'%k)
     for kind in ('stairs','railings','curtain_walls','roofs','topography','beams','wall_foundations','mep','groups'):
         for k,o in enumerate(sp.get(kind,[])):
             if len(o.get('offset',[]))!=2: err.append('%s %d: offset [dx,dy] required'%(kind,k))
@@ -151,6 +155,7 @@ def build(sp,out):
         for r,(ws,rid) in zip(rs,res):
             if 'id' in r:
                 for nm,wi in zip(('south','east','north','west'),ws): wid['%s.%s'%(r['id'],nm)]=(wi,None)
+    for rf in sp.get('roof_rects',[]): S.roof(rf['x'],rf['y'],rf['width'],rf['depth'])
     for f in sp.get('floors',[]): S.floor(f['x'],f['y'],f['width'],f['depth'],lid[f.get('level',LEVEL1)])
     for c in sp.get('columns',[]): S.column_lv(c['x'],c['y'],lid[c.get('base',LEVEL1)],lid[c['top']])
     for kind,fn in (('windows',S.window_lv),('doors',S.door_lv)):

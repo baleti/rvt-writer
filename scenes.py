@@ -278,6 +278,16 @@ class Scene:
         for hd,rec,it,nid,row in genlib2.make_group_shift(self.g,GT,nids,dx,dy,self.tr,reuse): self.g.new.append((hd,rec,it,nid)); self.g.rows.append(row)
         if not reuse: self.GSD[feature]={i:n for i,n in zip(GT.ids,nids) if i in GT.shared}
         newl=[n for i,n in zip(GT.ids,nids) if i not in reuse]; self.man.setdefault('shifted',[]).append([newl[0],feature,dx,dy,newl,[i for i in GT.ids if i not in reuse]]); self.man.setdefault('parts',[]).extend([[n,'nolist'] for i,n in zip(GT.ids,nids) if i not in reuse][1:]); self.counts[feature]=self.counts.get(feature,0)+1; return nids
+    def roof(self,x0,y0,W,D):
+        """flat footprint roof + ceiling over the rectangle (x0,y0,W,D), level 1, W > D (clone of rosetta roof_shift, doubles from the roofs12 fit)"""
+        feature='roof_shift'; self.GS=getattr(self,'GS',{})
+        if feature not in self.GS: self.GS[feature]=_cached_shift_tpl(self._R(feature+'_base'),self._R(feature+'_var'),self.g.e.m.ids)
+        GT=self.GS[feature]; self.GSD=getattr(self,'GSD',{}); reuse=self.GSD.get(feature,{})
+        nids=[(reuse[i] if i in reuse else self.nid()) for i in GT.ids]
+        for hd,rec,it,nid,row in genlib2.make_roof_group(self.g,GT,nids,x0,y0,W,D,self.tr,reuse,self.year): self.g.new.append((hd,rec,it,nid)); self.g.rows.append(row)
+        if not reuse: self.GSD[feature]={i:n for i,n in zip(GT.ids,nids) if i in GT.shared}
+        newl=[n for i,n in zip(GT.ids,nids) if i not in reuse]
+        self.man.setdefault('roofs',[]).append([nids[GT.ids.index(genlib2.ROOF_FIRST[self.year])],x0,y0,W,D]); self.man.setdefault('parts',[]).extend([[n,'nolist'] for n in newl]); self.counts['roof']=self.counts.get('roof',0)+1; return nids
     def grid(self,name,p0,p1):
         if getattr(self,'GT_',None) is None: self.GT_=genlib2.grid_template(rvtgen.Gen(self._R('grid_level_base')))
         i=self.nid(); hd,rec,it,row=genlib2.make_grid(self.g,self.GT_,i,name,p0,p1,self.tr); self.g.new.append((hd,rec,it,i)); self.g.rows.append(row)

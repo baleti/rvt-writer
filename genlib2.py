@@ -553,6 +553,48 @@ def make_group_shift(g,GT,nids,dx,dy,tr,reuse=None):
         out.append((bytes(parts['hdr']),rec,item,nid,bytes(row)))
     return out
 
+# ---------------- free-size flat roof + ceiling: clone of the roof_shift group, doubles set from the roofs12 size fit (files/rooffit_2024.json) ----------------
+ROOF_FIRST={2024:301628,2026:303764}; ROOF_ID0={2024:301628,2026:303764}; _ROOF_CANON={}
+def roof_canon(year):
+    """{item offset: 'W'|'D'|'0'} of the ProfileRoof item's edge-block area, read from sample 0 (40 x 26 ft, W>D) of rosetta <year>_roofs12_base"""
+    if year not in _ROOF_CANON:
+        import rvtgen
+        g=rvtgen.Gen(os.path.expanduser('~/rvt-research/rosetta/%d_roofs12_base.rte'%year)); it=g.template(ROOF_ID0[year])['item']; c={}
+        un=[int(o) for o in _json.load(open(os.path.expanduser('~/rvt-research/write-lab/files/rooffit_%d.json'%year)))['roles']['0']['item']['unexpl']]
+        for o in un:
+            v=struct.unpack_from('<d',it,o)[0]
+            if v==40.0: c[o]='W'
+            elif v==26.0: c[o]='D'
+            elif v==0.0: c[o]='0'
+        _ROOF_CANON[year]=c
+    return _ROOF_CANON[year]
+ROOF_CANON_OLD= ROOF_CANON=[((0,8,16,32,40),'WDDW0'),((0,8,16,32,40),'0DWWD'),((0,8,16,32,40),'00D0D'),((0,8,16,32,40),'W0W00'),((0,8,32,40,48),'00W0W'),((0,8,32,40,48),'WD0DW'),((0,8,32,40,48),'W0WDD'),((0,8,32,40,48),'0D00D')]
+def make_roof_group(g,GT,nids,x0,y0,W,D,tr,reuse,year=2024):
+    """GT/nids as make_group_shift (roof_shift group); every record of role r (id - first roof id; the ceiling sketch plane/sketch before the roof = roles 22,23) gets the fitted doubles for the rectangle (x0,y0,W,D), W>D.
+    Offsets the fit could not explain keep the template bytes (they are the same stale per-sample value in every Revit record), except the 8 edge blocks of the ProfileRoof item, written in Revit's canonical block order."""
+    assert W>D, 'free-size roofs need W > D (the cached edge blocks of the other orientations are not decoded)'
+    fit=_json.load(open(os.path.expanduser('~/rvt-research/write-lab/files/rooffit_%d.json'%year)))['roles']
+    try: fit.update({str(k):v for k,v in _json.load(open(os.path.expanduser('~/rvt-research/write-lab/files/rooffit_2223_%d.json'%year))).items()})
+    except FileNotFoundError: pass
+    first=ROOF_FIRST[year]; ft=_ffeats(x0,y0,W,D); ft.update(W2=W*W,D2=D*D,diag=(W*W+D*D)**0.5)
+    idmap=dict(zip(GT.ids,nids)); idmap.update(reuse); out=[]
+    for i,nid in zip(GT.ids,nids):
+        if i in reuse: continue
+        r=i-first if i>=first else {i_:22+k for k,i_ in enumerate([j for j in GT.ids if j<first and j>first-5])}.get(i)
+        T=GT.T[i]; parts={}
+        for key in ('rec','item','hdr','row'):
+            b=bytearray(T[key])
+            if key!='row' and r is not None and str(r) in fit:
+                for off,(fn,co) in ((fit[str(r)].get(key) or {}).get('found') or {}).items(): struct.pack_into('<d',b,int(off),sum(c*ft[f] for f,c in zip(fn,co)))
+            if key=='item' and r==0:
+                for o,sym in roof_canon(year).items(): struct.pack_into('<d',b,o,{'W':W,'D':D,'0':0.0}[sym])
+            parts[key]=bytearray(rep_many(b,idmap))
+        rec=parts['rec']; rec[4:12]=nid.to_bytes(8,'little'); setphase(parts['hdr']); setphase(rec); setphase(parts['item']); genlib.rekey_item(parts['item'],T,parts['hdr'])
+        rec=g.stamp(bytes(rec)); item=restamp(bytes(parts['item']),8)
+        row=parts['row']; struct.pack_into('<3I',row,8,*tr)
+        out.append((bytes(parts['hdr']),rec,item,nid,bytes(row)))
+    return out
+
 # ---------------- grid registry in Global/Latest (2 lists: grid list after two negative ids, and the datum list levels+grids, both sorted id lists) ----------------
 def grid_anchors(year):
     """learn from rosetta <year>_grid_level_base vs the year's ds0 seed: for both lists the 24-byte context before the u32 count, and the number of

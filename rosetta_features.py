@@ -280,6 +280,11 @@ using (var t = new Transaction(d, "rf")) { t.Start(); var rt = d.GetElement(cp.F
   out_ += " R" + k + "=" + roof.Id + "/" + ce.Id; }
  t.Commit(); }
 ''')
+# portrait variant (D > W) of roofs12: same code, width/depth swapped, so the writer can learn the block order for D>W
+_b=F['roofs12'][1]
+_R='double[][] R = { new double[]{60,-100,26,40}, new double[]{110,-100,20,30}, new double[]{150,-100,24,25}, new double[]{60,-150,10,50}, new double[]{120,-150,18,36}, new double[]{170,-150,12,20}, new double[]{60,-200,30,44}, new double[]{115,-200,27,28}, new double[]{150,-200,15,60}, new double[]{220,-200,9,18}, new double[]{220,-100,21,33}, new double[]{220,-150,13,26} };'
+import re as _re
+F['roofs12p']=(F['roofs12'][0].replace('(W>=D)','(D>W, portrait)'), _re.sub(r'double\[\]\[\] R = \{.*?\};', lambda m:_R, _b, count=1, flags=_re.S))
 # ---------------- SHIFT rosetta (seed = <year>_house_base.rte): one Revit-made object; variant = the same object translated by (+100,+50,0). The writer places translated copies (genlib2.GroupShiftTpl) ----------------
 F['stair_shift']=("[SEED house_base] straight stair Level 1 -> Level 2, run (60,40)-(75,40) justification Center (its auto railings included); variant translated (+100,+50)",r'''
 double DX = v == 1 ? 100 : 0, DY = v == 1 ? 50 : 0;
