@@ -571,7 +571,7 @@ def roof_canon(year,portrait=False):
         _ROOF_CANON[k]=c
     return _ROOF_CANON[k]
 ROOF_CANON_OLD= ROOF_CANON=[((0,8,16,32,40),'WDDW0'),((0,8,16,32,40),'0DWWD'),((0,8,16,32,40),'00D0D'),((0,8,16,32,40),'W0W00'),((0,8,32,40,48),'00W0W'),((0,8,32,40,48),'WD0DW'),((0,8,32,40,48),'W0WDD'),((0,8,32,40,48),'0D00D')]
-def make_roof_group(g,GT,nids,x0,y0,W,D,tr,reuse,year=2024):
+def make_roof_group(g,GT,nids,x0,y0,W,D,tr,reuse,year=2024,level=355,z=0.0):
     """GT/nids as make_group_shift (roof_shift group); every record of role r (id - first roof id; the ceiling sketch plane/sketch before the roof = roles 22,23) gets the fitted doubles for the rectangle (x0,y0,W,D), W>D.
     Offsets the fit could not explain keep the template bytes (they are the same stale per-sample value in every Revit record), except the 8 edge blocks of the ProfileRoof item, written in Revit's canonical block order."""
     assert W!=D, 'free-size roofs need W != D (square roofs are a different regime)'
@@ -581,6 +581,7 @@ def make_roof_group(g,GT,nids,x0,y0,W,D,tr,reuse,year=2024):
     except FileNotFoundError: pass
     first=ROOF_FIRST[year]; ft=_ffeats(x0,y0,W,D); ft.update(W2=W*W,D2=D*D,diag=(W*W+D*D)**0.5)
     idmap=dict(zip(GT.ids,nids)); idmap.update(reuse); out=[]
+    if level!=355: idmap[355]=level
     for i,nid in zip(GT.ids,nids):
         if i in reuse: continue
         r=i-first if i>=first else {i_:22+k for k,i_ in enumerate([j for j in GT.ids if j<first and j>first-5])}.get(i)
@@ -589,6 +590,9 @@ def make_roof_group(g,GT,nids,x0,y0,W,D,tr,reuse,year=2024):
             b=bytearray(T[key])
             if key!='row' and r is not None and str(r) in fit:
                 for off,(fn,co) in ((fit[str(r)].get(key) or {}).get('found') or {}).items(): struct.pack_into('<d',b,int(off),sum(c*ft[f] for f,c in zip(fn,co)))
+            if z and r is not None and str(r) in fit:
+                for off,sl in ((fit[str(r)].get('zslope') or {}).get(key) or {}).items():
+                    if isinstance(sl,(int,float)) and sl: struct.pack_into('<d',b,int(off),struct.unpack_from('<d',b,int(off))[0]+sl*z)
             if key=='item' and r==0:
                 for o,sym in roof_canon(year,port).items(): struct.pack_into('<d',b,o,{'W':W,'D':D,'0':0.0}[sym])
             parts[key]=bytearray(rep_many(b,idmap))
