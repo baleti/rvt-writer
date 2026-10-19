@@ -8,7 +8,7 @@
 
 Our own writer: every added element is a clone of a record that Revit itself wrote in a small
 "rosetta" file (one object, base + one-change variant), with ids, references, positions and
-checksums rewritten by our code (fitted from Revit samples). No Revit, no ODA, no third-party code.
+checksums rewritten by our code (fitted from Revit samples). No Revit, no third-party code.
 
 The output always contains the **seed**: a tiny Revit-made house (`rosetta/<year>_house_base.rte`,
 5 walls, 2 doors, 3 windows, 2 columns, floor, room, text) at x 0..47, y 0..30 on level `L1`

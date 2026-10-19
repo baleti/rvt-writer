@@ -2,6 +2,6 @@
 
 Writer and Revit-API oracle tooling: generates .rvt scenes and ground-truth tooling for validation against offline Revit.
 
-Source code only. Autodesk sample files, Revit-derived ground truth, caches and renders are deliberately not in this repository (local only). Provenance: independent analysis; public prior art used for ideas only. All rights reserved.
+Source code only. Autodesk sample files, Revit-derived ground truth, caches and renders are deliberately not in this repository (local only). Provenance: independent analysis; public prior art used for ideas only. Licensed under the MIT License (see LICENSE).
 
-Mirrored from a private working tree by an allow-list publisher (see GITHUB.md in the owner's notes).
+Autodesk and Revit are trademarks of Autodesk, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Autodesk.
