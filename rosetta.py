@@ -6,7 +6,7 @@ import guest
 from rosetta_features import F
 year=int(sys.argv[1]);
 OVR={'roof_ceiling':'C:\\ProgramData\\Autodesk\\RVT %d\\Templates\\Default_M_ENU.rte'%year}
-SEEDUP={k:os.path.expanduser('~/rvt-research/rosetta/%d_house_base.rte'%year) for k in ('roofs12','stair_shift','railing_shift','curtain_shift','roof_shift','grid_house','beam_shift','wallfound_shift','duct_shift','group_shift')}
+SEEDUP={k:os.path.expanduser('~/rvt-research/rosetta/%d_house_base.rte'%year) for k in ('roofs12','roofs12p','stair_shift','railing_shift','curtain_shift','roof_shift','grid_house','beam_shift','wallfound_shift','duct_shift','group_shift')}
 only=sys.argv[2].split(',') if len(sys.argv)>2 else list(F)
 PRE='''using Autodesk.Revit.DB; using Autodesk.Revit.DB.Architecture; using Autodesk.Revit.DB.Structure; using System.Linq; using System.Collections.Generic;
 public class StairsFailurePreprocessor : IFailuresPreprocessor { public FailureProcessingResult PreprocessFailures(FailuresAccessor a) { return FailureProcessingResult.Continue; } }

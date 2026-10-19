@@ -77,6 +77,14 @@ for cls,items in M.items():
             t=[r for r in rows if r[0]=='TEXT' and r[1]==i]
             ok=bool(t) and t[0][2]==it[3] and abs(float(t[0][3].split(',')[0])-it[1])<1e-6 and abs(float(t[0][3].split(',')[1])-it[2])<1e-6
             if not ok: print('BAD textnote',i,t[:1],it); bad+=1
+        if cls=='roofs':      # free-size roof [id,x0,y0,W,D]: Revit's bounding box must be the requested rectangle (flat footprint roof, eaves 0), volume positive
+            bb=[r for r in rows if r[0]=='BB' and r[1]==i]
+            ok=e[2] in ('ProfileRoof','FootPrintRoof','Roof') and vol.get(i,0)>0 and bool(bb)
+            if bb:
+                lo=[float(v) for v in bb[0][2].split(',')]; hi=[float(v) for v in bb[0][3].split(',')]
+                ok=ok and abs(lo[0]-it[1])<0.05 and abs(lo[1]-it[2])<0.05 and abs(hi[0]-it[1]-it[3])<0.05 and abs(hi[1]-it[2]-it[4])<0.05
+            if not ok: print('BAD roof',i,e[2:5],it,bb[:1],vol.get(i)); bad+=1
+            else: print('roof',i,it[1:],'bbox ok volume',round(vol.get(i,0),2))
         if cls=='floors':
             ok=e[2]=='Floor' and (len(it)<6 or e[5]=='level=%d'%it[5]) and abs(vol.get(i,0)-it[3]*it[4]*0.4921259842519685)<1e-3*it[3]*it[4]
             if not ok: print('BAD floor',i,e[2:5],vol.get(i),it[3]*it[4]*0.4921259842519685); bad+=1
