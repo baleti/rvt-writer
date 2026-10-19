@@ -110,7 +110,7 @@ def validate(sp):
                 err.append('room %d: overlaps or touches (< 1 ft) room %d on the same level (writer rooms are disjoint boxes with their own walls)'%(k,k2))
         if min(r['width'],r['depth'])<3: err.append('room %d: width/depth must be >= 3 ft'%k)
     for k,rf in enumerate(sp.get('roof_rects',[])):
-        if rf['width']<=rf['depth']: err.append('roof_rects %d: width must be > depth (writer limit)'%k)
+        if rf['width']==rf['depth']: err.append('roof_rects %d: square roofs are not supported (width != depth)'%k)
         if rf['width']<6 or rf['depth']<4: err.append('roof_rects %d: at least 6 x 4 ft'%k)
     for kind in ('stairs','railings','curtain_walls','roofs','topography','beams','wall_foundations','mep','groups'):
         for k,o in enumerate(sp.get(kind,[])):

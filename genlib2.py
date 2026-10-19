@@ -555,25 +555,28 @@ def make_group_shift(g,GT,nids,dx,dy,tr,reuse=None):
 
 # ---------------- free-size flat roof + ceiling: clone of the roof_shift group, doubles set from the roofs12 size fit (files/rooffit_2024.json) ----------------
 ROOF_FIRST={2024:301628,2026:303764}; ROOF_ID0={2024:301628,2026:303764}; _ROOF_CANON={}
-def roof_canon(year):
+def roof_canon(year,portrait=False):
     """{item offset: 'W'|'D'|'0'} of the ProfileRoof item's edge-block area, read from sample 0 (40 x 26 ft, W>D) of rosetta <year>_roofs12_base"""
-    if year not in _ROOF_CANON:
+    k=(year,portrait)
+    if k not in _ROOF_CANON:
         import rvtgen
-        g=rvtgen.Gen(os.path.expanduser('~/rvt-research/rosetta/%d_roofs12_base.rte'%year)); it=g.template(ROOF_ID0[year])['item']; c={}
-        un=[int(o) for o in _json.load(open(os.path.expanduser('~/rvt-research/write-lab/files/rooffit_%d.json'%year)))['roles']['0']['item']['unexpl']]
+        nm,fit,(vw,vd)=('roofs12p','rooffit3p',(26.0,40.0)) if portrait else ('roofs12','rooffit',(40.0,26.0))
+        g=rvtgen.Gen(os.path.expanduser('~/rvt-research/rosetta/%d_%s_base.rte'%(year,nm))); it=g.template(ROOF_ID0[year])['item']; c={}
+        un=[int(o) for o in _json.load(open(os.path.expanduser('~/rvt-research/write-lab/files/%s_%d.json'%(fit,year))))['roles']['0']['item']['unexpl']]
         for o in un:
             v=struct.unpack_from('<d',it,o)[0]
-            if v==40.0: c[o]='W'
-            elif v==26.0: c[o]='D'
+            if v==vw: c[o]='W'
+            elif v==vd: c[o]='D'
             elif v==0.0: c[o]='0'
-        _ROOF_CANON[year]=c
-    return _ROOF_CANON[year]
+        _ROOF_CANON[k]=c
+    return _ROOF_CANON[k]
 ROOF_CANON_OLD= ROOF_CANON=[((0,8,16,32,40),'WDDW0'),((0,8,16,32,40),'0DWWD'),((0,8,16,32,40),'00D0D'),((0,8,16,32,40),'W0W00'),((0,8,32,40,48),'00W0W'),((0,8,32,40,48),'WD0DW'),((0,8,32,40,48),'W0WDD'),((0,8,32,40,48),'0D00D')]
 def make_roof_group(g,GT,nids,x0,y0,W,D,tr,reuse,year=2024):
     """GT/nids as make_group_shift (roof_shift group); every record of role r (id - first roof id; the ceiling sketch plane/sketch before the roof = roles 22,23) gets the fitted doubles for the rectangle (x0,y0,W,D), W>D.
     Offsets the fit could not explain keep the template bytes (they are the same stale per-sample value in every Revit record), except the 8 edge blocks of the ProfileRoof item, written in Revit's canonical block order."""
-    assert W>D, 'free-size roofs need W > D (the cached edge blocks of the other orientations are not decoded)'
-    fit=_json.load(open(os.path.expanduser('~/rvt-research/write-lab/files/rooffit_%d.json'%year)))['roles']
+    assert W!=D, 'free-size roofs need W != D (square roofs are a different regime)'
+    port=D>W
+    fit=_json.load(open(os.path.expanduser('~/rvt-research/write-lab/files/%s_%d.json'%('rooffit3p' if port else 'rooffit',year))))['roles']
     try: fit.update({str(k):v for k,v in _json.load(open(os.path.expanduser('~/rvt-research/write-lab/files/rooffit_2223_%d.json'%year))).items()})
     except FileNotFoundError: pass
     first=ROOF_FIRST[year]; ft=_ffeats(x0,y0,W,D); ft.update(W2=W*W,D2=D*D,diag=(W*W+D*D)**0.5)
@@ -587,7 +590,7 @@ def make_roof_group(g,GT,nids,x0,y0,W,D,tr,reuse,year=2024):
             if key!='row' and r is not None and str(r) in fit:
                 for off,(fn,co) in ((fit[str(r)].get(key) or {}).get('found') or {}).items(): struct.pack_into('<d',b,int(off),sum(c*ft[f] for f,c in zip(fn,co)))
             if key=='item' and r==0:
-                for o,sym in roof_canon(year).items(): struct.pack_into('<d',b,o,{'W':W,'D':D,'0':0.0}[sym])
+                for o,sym in roof_canon(year,port).items(): struct.pack_into('<d',b,o,{'W':W,'D':D,'0':0.0}[sym])
             parts[key]=bytearray(rep_many(b,idmap))
         rec=parts['rec']; rec[4:12]=nid.to_bytes(8,'little'); setphase(parts['hdr']); setphase(rec); setphase(parts['item']); genlib.rekey_item(parts['item'],T,parts['hdr'])
         rec=g.stamp(bytes(rec)); item=restamp(bytes(parts['item']),8)
