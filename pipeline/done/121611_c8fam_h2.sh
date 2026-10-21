@@ -1,0 +1,4 @@
+# timeout=400
+# vm
+cd ~/rvt-research/write-lab
+RFA_SLICE=2:3 python3 /home/user1/src/rvt-extract/oracle/rfacheck.py 2024 /home/user1/src/rvt-extract/out/var6 /home/user1/src/rvt-extract/out/rfa_chk/h2
