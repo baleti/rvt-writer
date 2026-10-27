@@ -155,6 +155,12 @@ def write(cfbobj, path, v3_hint=None):
     struct.pack_into('<109I',h,76,*hd)
     out=bytearray(h)
     if ss>512: out+=b'\0'*(ss-512)
-    with open(path,'wb') as f:
+    def _emit(f):
         f.write(out)
         for s in sectors: f.write(s)
+    try:
+        import sys, os; sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__)))); import rvtio
+    except ImportError: rvtio = None
+    if rvtio: rvtio.atomic_write_stream(path, _emit)       # tmp + fsync + replace (Windows retry): overwriting a model in place never leaves a torn .rvt
+    else:
+        with open(path,'wb') as f: _emit(f)
